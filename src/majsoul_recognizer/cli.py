@@ -132,6 +132,12 @@ def main():
         help="区域配置文件路径",
     )
 
+    # calibrate 命令: 校准区域坐标
+    cal_parser = subparsers.add_parser("calibrate", help="校准区域坐标")
+    cal_parser.add_argument("--screenshot", required=True, help="雀魂游戏截图路径")
+    cal_parser.add_argument("--config", default=None, help="区域配置文件路径")
+    cal_parser.add_argument("--output", default=None, help="标注图输出路径")
+
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -147,6 +153,10 @@ def main():
             sys.exit(1)
         output = capture_and_save(image, Path(args.output), build_capture_chain(args.config))
         logger.info(f"Zones saved to: {output}")
+
+    elif args.command == "calibrate":
+        from majsoul_recognizer.calibrate import calibrate
+        calibrate(args.screenshot, args.config, args.output)
 
     else:
         parser.print_help()
