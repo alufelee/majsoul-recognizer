@@ -3,10 +3,6 @@
 import subprocess
 import sys
 
-import numpy as np
-import pytest
-from pathlib import Path
-
 from majsoul_recognizer.cli import capture_and_save, build_capture_chain
 
 

@@ -60,13 +60,10 @@ class WindowFinder(ABC):
 
 class MacOSWindowFinder(WindowFinder):
     def find_window(self) -> WindowInfo | None:
-        try:
-            import Quartz  # noqa: F401
-        except ImportError:
-            logger.warning("pyobjc not available, using fallback")
-            return self._fallback_find()
-
         windows = self.list_windows()
+        if not windows:
+            logger.warning("No windows listed — Quartz may be unavailable")
+            return None
         for win in windows:
             if self._match_title(win.title):
                 return win
@@ -80,11 +77,17 @@ class MacOSWindowFinder(WindowFinder):
                 kCGNullWindowID,
             )
         except ImportError:
+            logger.warning("pyobjc not available, install with: pip install pyobjc-framework-Quartz")
             return []
 
-        window_list = CGWindowListCopyWindowInfo(
-            kCGWindowListOptionOnScreenOnly, kCGNullWindowID
-        )
+        try:
+            window_list = CGWindowListCopyWindowInfo(
+                kCGWindowListOptionOnScreenOnly, kCGNullWindowID
+            )
+        except Exception as e:
+            logger.warning("Quartz window listing failed: %s", e)
+            return []
+
         result = []
         for win in window_list:
             bounds = win.get("kCGWindowBounds", {})
@@ -104,12 +107,26 @@ class MacOSWindowFinder(WindowFinder):
             ))
         return result
 
-    def _fallback_find(self) -> WindowInfo | None:
-        logger.warning("macOS window discovery requires pyobjc. Install with: pip install pyobjc-framework-Quartz")
-        return None
-
 
 class WindowsWindowFinder(WindowFinder):
+    def _get_client_rect(self, hwnd, win32gui) -> WindowInfo | None:
+        """获取窗口客户区信息（排除标题栏和边框）"""
+        title = win32gui.GetWindowText(hwnd)
+        # 获取客户区尺寸
+        left, top, right, bottom = win32gui.GetClientRect(hwnd)
+        if right <= 0 or bottom <= 0:
+            return None
+        # 将客户区坐标转换为屏幕坐标
+        left, top = win32gui.ClientToScreen(hwnd, (left, top))
+        right, bottom = win32gui.ClientToScreen(hwnd, (right, bottom))
+        return WindowInfo(
+            title=title,
+            x=left, y=top,
+            width=right - left,
+            height=bottom - top,
+            window_id=hwnd,
+        )
+
     def find_window(self) -> WindowInfo | None:
         try:
             import win32gui
@@ -124,14 +141,9 @@ class WindowsWindowFinder(WindowFinder):
                 return
             title = win32gui.GetWindowText(hwnd)
             if title and self._match_title(title):
-                rect = win32gui.GetWindowRect(hwnd)
-                result.append(WindowInfo(
-                    title=title,
-                    x=rect[0], y=rect[1],
-                    width=rect[2] - rect[0],
-                    height=rect[3] - rect[1],
-                    window_id=hwnd,
-                ))
+                info = self._get_client_rect(hwnd, win32gui)
+                if info:
+                    result.append(info)
 
         win32gui.EnumWindows(enum_callback, None)
         return result[0] if result else None
@@ -147,15 +159,9 @@ class WindowsWindowFinder(WindowFinder):
         def enum_callback(hwnd, _):
             if not win32gui.IsWindowVisible(hwnd):
                 return
-            title = win32gui.GetWindowText(hwnd)
-            rect = win32gui.GetWindowRect(hwnd)
-            result.append(WindowInfo(
-                title=title,
-                x=rect[0], y=rect[1],
-                width=rect[2] - rect[0],
-                height=rect[3] - rect[1],
-                window_id=hwnd,
-            ))
+            info = self._get_client_rect(hwnd, win32gui)
+            if info:
+                result.append(info)
 
         win32gui.EnumWindows(enum_callback, None)
         return result

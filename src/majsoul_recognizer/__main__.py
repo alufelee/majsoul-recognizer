@@ -2,4 +2,5 @@
 
 from majsoul_recognizer.cli import main
 
-main()
+if __name__ == "__main__":
+    main()

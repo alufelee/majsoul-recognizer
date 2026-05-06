@@ -10,7 +10,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class BBox(BaseModel):
@@ -71,6 +71,21 @@ class ZoneDefinition(BaseModel):
     y: float = Field(ge=0.0, le=1.0)
     width: float = Field(gt=0.0, le=1.0)
     height: float = Field(gt=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def _check_bounds(self) -> "ZoneDefinition":
+        """校验区域不超出图像边界"""
+        if self.x + self.width > 1.0:
+            raise ValueError(
+                f"Zone '{self.name.value}': x({self.x}) + width({self.width}) = "
+                f"{self.x + self.width} > 1.0, exceeds image boundary"
+            )
+        if self.y + self.height > 1.0:
+            raise ValueError(
+                f"Zone '{self.name.value}': y({self.y}) + height({self.height}) = "
+                f"{self.y + self.height} > 1.0, exceeds image boundary"
+            )
+        return self
 
     def to_bbox(self, img_width: int, img_height: int) -> BBox:
         """将比例坐标转换为像素坐标"""

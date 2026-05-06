@@ -33,7 +33,7 @@ class ScreenCapture:
             img = np.array(screenshot, dtype=np.uint8)
             return cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
         except Exception as e:
-            logger.warning(f"Screenshot failed: {e}")
+            logger.warning("Screenshot failed: %s", e)
             return None
 
     def capture_monitor(self, monitor_index: int = 0) -> np.ndarray | None:
@@ -43,7 +43,7 @@ class ScreenCapture:
             img = np.array(screenshot, dtype=np.uint8)
             return cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
         except Exception as e:
-            logger.warning(f"Monitor capture failed: {e}")
+            logger.warning("Monitor capture failed: %s", e)
             return None
 
     def close(self):

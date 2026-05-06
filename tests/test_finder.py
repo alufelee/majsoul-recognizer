@@ -1,7 +1,5 @@
 """窗口发现测试"""
 
-import pytest
-
 from majsoul_recognizer.capture.finder import (
     WindowInfo,
     WindowFinder,

@@ -17,7 +17,6 @@ import numpy as np
 from majsoul_recognizer.capture.finder import create_finder
 from majsoul_recognizer.capture.screenshot import create_capture
 from majsoul_recognizer.pipeline import CapturePipeline
-from majsoul_recognizer.types import ZoneName
 
 logger = logging.getLogger(__name__)
 

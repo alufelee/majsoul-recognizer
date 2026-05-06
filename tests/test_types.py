@@ -10,7 +10,6 @@ from majsoul_recognizer.types import (
     ZoneName,
     Detection,
     RoundInfo,
-    PlayerScore,
     GameState,
     FrameResult,
 )

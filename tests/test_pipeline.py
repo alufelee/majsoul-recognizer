@@ -4,8 +4,6 @@ import numpy as np
 import pytest
 
 from majsoul_recognizer.pipeline import CapturePipeline
-from majsoul_recognizer.capture.finder import WindowInfo
-from majsoul_recognizer.types import ZoneName
 
 
 class TestCapturePipeline:
@@ -38,7 +36,7 @@ class TestCapturePipeline:
 
     def test_process_image_animated_frame(self, pipeline, sample_screenshot):
         """动画帧检测"""
-        result1 = pipeline.process_image(sample_screenshot)
+        pipeline.process_image(sample_screenshot)
         # 大幅修改图像
         animated = np.ones_like(sample_screenshot) * 128
         result2 = pipeline.process_image(animated)

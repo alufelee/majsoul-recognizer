@@ -2,10 +2,9 @@
 
 from pathlib import Path
 
-import numpy as np
 import pytest
 
-from majsoul_recognizer.types import ZoneName, BBox
+from majsoul_recognizer.types import ZoneName
 from majsoul_recognizer.zones.config import ZoneConfig, load_zone_config
 from majsoul_recognizer.zones.splitter import ZoneSplitter
 
