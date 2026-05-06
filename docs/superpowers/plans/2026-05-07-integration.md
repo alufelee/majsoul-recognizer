@@ -253,6 +253,15 @@ import pytest
 
 from majsoul_recognizer.cli import recognize_command
 
+# 检测 onnxruntime 是否可用
+try:
+    import onnxruntime  # noqa: F401
+    _HAS_ORT = True
+except ImportError:
+    _HAS_ORT = False
+
+_SKIP_ORT = pytest.mark.skipif(not _HAS_ORT, reason="onnxruntime not installed")
+
 
 class TestRecognizeCommand:
     """recognize CLI 子命令测试"""
@@ -282,8 +291,9 @@ class TestRecognizeCommand:
             recognize_command(["--image", str(img_path)])
         assert exc_info.value.code == 0
 
+    @_SKIP_ORT
     def test_model_not_found(self, tmp_path):
-        """模型文件路径无效 → 退出码 1"""
+        """模型文件路径无效 → 退出码 1（需要 onnxruntime）"""
         img = np.zeros((1080, 1920, 3), dtype=np.uint8)
         img[:] = (30, 50, 40)
         img_path = tmp_path / "synthetic.png"
@@ -333,6 +343,10 @@ def recognize_command(argv: list[str] | None = None) -> None:
         argv: 命令行参数，None 时从 sys.argv 读取
     """
     import argparse as _argparse
+    import logging
+
+    # 抑制非关键日志输出到 stderr（设计规格 §4.6）
+    logging.getLogger("majsoul_recognizer").setLevel(logging.WARNING)
 
     parser = _argparse.ArgumentParser(
         prog="majsoul-recognizer recognize",
@@ -356,10 +370,16 @@ def recognize_command(argv: list[str] | None = None) -> None:
         from majsoul_recognizer.recognition import RecognitionConfig
         config_kwargs = {}
         if args.model:
-            config_kwargs["model_path"] = Path(args.model)
+            model_path = Path(args.model)
+            if not model_path.exists():
+                print(f"Error: Model file not found: {model_path}", file=sys.stderr)
+                raise SystemExit(1)
+            config_kwargs["model_path"] = model_path
         if args.template_dir:
             config_kwargs["template_dir"] = Path(args.template_dir)
         config = RecognitionConfig(**config_kwargs)
+    except SystemExit:
+        raise
     except Exception as e:
         print(f"Error: Failed to create config: {e}", file=sys.stderr)
         raise SystemExit(1)
@@ -369,9 +389,6 @@ def recognize_command(argv: list[str] | None = None) -> None:
         from majsoul_recognizer.recognition import RecognitionEngine
         pipeline = build_capture_chain(args.config)
         engine = RecognitionEngine(config)
-    except FileNotFoundError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        raise SystemExit(1)
     except Exception as e:
         print(f"Error: Initialization failed: {e}", file=sys.stderr)
         raise SystemExit(1)
@@ -388,6 +405,9 @@ def recognize_command(argv: list[str] | None = None) -> None:
     if frame.is_static:
         try:
             state = engine.recognize(frame.zones)
+        except FileNotFoundError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            raise SystemExit(1)
         except Exception as e:
             print(f"Error: Recognition failed: {e}", file=sys.stderr)
             raise SystemExit(1)
@@ -508,7 +528,9 @@ git commit -m "feat: add [project.scripts] entry point for CLI"
 
 这个 Task 创建独立的集成测试文件，验证从截图文件到 JSON 输出的完整链路。
 
-测试中需要检查 `onnxruntime` 是否可用来决定某些测试是否跳过。使用与 `tests/recognition/conftest.py` 相同的 `dummy_detector_path` 和 `fake_template_dir` fixture。
+测试中需要检查 `onnxruntime` 是否可用来决定某些测试是否跳过。
+
+**注意**: `tests/recognition/conftest.py` 中的 `dummy_detector_path` 和 `fake_template_dir` fixture **仅对 `tests/recognition/` 目录下的测试可见**（pytest 的 conftest 作用域规则），因此在 `tests/test_integration.py` 中需要重新定义这两个 fixture。
 
 - [ ] **Step 1: 编写集成测试**
 
@@ -539,6 +561,65 @@ except ImportError:
 _SKIP_ORT = pytest.mark.skipif(not _HAS_ORT, reason="onnxruntime not installed")
 
 
+# --- 内联 fixture（tests/recognition/conftest.py 的 fixture 对本文件不可见）---
+
+
+@pytest.fixture(scope="session")
+def dummy_detector_path(tmp_path_factory):
+    """生成假 ONNX 检测模型（session 级别共享）"""
+    import onnx
+    from onnx import helper, TensorProto, numpy_helper
+
+    output = np.zeros((1, 44, 8400), dtype=np.float32)
+
+    # index 0: cx=80, cy=80, w=60, h=80, class=0(1m), conf=0.95
+    output[0, 0, 0] = 80.0
+    output[0, 1, 0] = 80.0
+    output[0, 2, 0] = 60.0
+    output[0, 3, 0] = 80.0
+    output[0, 4, 0] = 0.95
+
+    # index 1: cx=200, cy=100, w=50, h=70, class=9(1p), conf=0.88
+    output[0, 0, 1] = 200.0
+    output[0, 1, 1] = 100.0
+    output[0, 2, 1] = 50.0
+    output[0, 3, 1] = 70.0
+    output[0, 4 + 9, 1] = 0.88
+
+    X = helper.make_tensor_value_info("images", TensorProto.FLOAT, [1, 3, 640, 640])
+    Y = helper.make_tensor_value_info("output0", TensorProto.FLOAT, [1, 44, 8400])
+
+    output_data = numpy_helper.from_array(output, "output0")
+    const_node = helper.make_node("Constant", [], ["output0"], value=output_data)
+
+    graph = helper.make_graph([const_node], "dummy_detector", [X], [Y])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 7
+    onnx.checker.check_model(model)
+
+    path = tmp_path_factory.mktemp("models") / "dummy_detector.onnx"
+    onnx.save(model, str(path))
+    return path
+
+
+@pytest.fixture(scope="session")
+def fake_template_dir(tmp_path_factory):
+    """生成假动作按钮模板（session 级别共享）"""
+    template_dir = tmp_path_factory.mktemp("templates")
+    buttons = {
+        "chi": "吃", "pon": "碰", "kan": "杠",
+        "ron": "荣和", "tsumo": "自摸", "riichi": "立直", "skip": "过",
+    }
+    for filename, text in buttons.items():
+        img = np.full((40, 100, 3), 200, dtype=np.uint8)
+        cv2.putText(img, text, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+        cv2.imwrite(str(template_dir / f"{filename}.png"), img)
+    return template_dir
+
+
+# --- 辅助函数 ---
+
+
 def _save_synthetic_screenshot(path: Path, *, different: bool = False) -> Path:
     """生成并保存合成截图"""
     img = np.zeros((1080, 1920, 3), dtype=np.uint8)
@@ -554,7 +635,7 @@ class TestEndToEndStubDetector:
     """使用 StubDetector（无 onnxruntime）的集成测试"""
 
     def test_synthetic_image_returns_valid_json(self, tmp_path):
-        """合成截图 + StubDetector → 退出码 0 + 有效 JSON"""
+        """合成截图 + StubDetector → 退出码 0 + 有效 JSON + 产品规格书键名"""
         img_path = _save_synthetic_screenshot(tmp_path / "test.png")
         result = subprocess.run(
             [sys.executable, "-m", "majsoul_recognizer", "recognize",
@@ -567,6 +648,10 @@ class TestEndToEndStubDetector:
         assert data["is_static"] is True
         assert isinstance(data["hand"], list)
         assert isinstance(data["warnings"], list)
+        # 产品规格书 §3 键名验证（设计规格 §8.1 测试 #7）
+        assert "round" in data
+        assert "round_info" not in data
+        assert "timer" in data
 
     def test_non_static_frame(self, tmp_path):
         """非静态帧 → is_static=false + warnings 含 frame_not_static"""
