@@ -150,6 +150,88 @@ def format_output(frame: FrameResult, state: GameState | None) -> dict:
     }
 
 
+def recognize_command(argv: list[str] | None = None) -> None:
+    """recognize 子命令: 截图 → 识别 → JSON
+
+    Args:
+        argv: 命令行参数，None 时从 sys.argv 读取
+    """
+    import argparse as _argparse
+    import logging
+
+    # 抑制非关键日志输出到 stderr（设计规格 §4.6）
+    logging.getLogger("majsoul_recognizer").setLevel(logging.WARNING)
+
+    parser = _argparse.ArgumentParser(
+        prog="majsoul-recognizer recognize",
+        description="识别截图中的游戏状态并输出 JSON",
+    )
+    parser.add_argument("-i", "--image", required=True, help="输入截图文件路径")
+    parser.add_argument("--config", default=None, help="区域配置文件路径")
+    parser.add_argument("--model", default=None, help="ONNX 模型文件路径")
+    parser.add_argument("--template-dir", default=None, help="动作按钮模板目录")
+
+    args = parser.parse_args(argv)
+
+    # 1. 读取图片
+    image = cv2.imread(args.image)
+    if image is None:
+        print(f"Error: Cannot read image: {args.image}", file=sys.stderr)
+        raise SystemExit(1)
+
+    # 2. 构建 RecognitionConfig
+    try:
+        from majsoul_recognizer.recognition import RecognitionConfig
+        config_kwargs = {}
+        if args.model:
+            model_path = Path(args.model)
+            if not model_path.exists():
+                print(f"Error: Model file not found: {model_path}", file=sys.stderr)
+                raise SystemExit(1)
+            config_kwargs["model_path"] = model_path
+        if args.template_dir:
+            config_kwargs["template_dir"] = Path(args.template_dir)
+        config = RecognitionConfig(**config_kwargs)
+    except SystemExit:
+        raise
+    except Exception as e:
+        print(f"Error: Failed to create config: {e}", file=sys.stderr)
+        raise SystemExit(1)
+
+    # 3. 构建 Pipeline + Engine
+    try:
+        from majsoul_recognizer.recognition import RecognitionEngine
+        pipeline = build_capture_chain(args.config)
+        engine = RecognitionEngine(config)
+    except Exception as e:
+        print(f"Error: Initialization failed: {e}", file=sys.stderr)
+        raise SystemExit(1)
+
+    # 4. 处理帧
+    try:
+        frame = pipeline.process_image(image)
+    except Exception as e:
+        print(f"Error: Pipeline failed: {e}", file=sys.stderr)
+        raise SystemExit(1)
+
+    # 5. 识别（仅静态帧）
+    state = None
+    if frame.is_static:
+        try:
+            state = engine.recognize(frame.zones)
+        except FileNotFoundError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            raise SystemExit(1)
+        except Exception as e:
+            print(f"Error: Recognition failed: {e}", file=sys.stderr)
+            raise SystemExit(1)
+
+    # 6. 输出 JSON
+    output = format_output(frame, state)
+    print(_json.dumps(output, ensure_ascii=False, indent=2))
+    raise SystemExit(0)
+
+
 def main():
     """CLI 主入口"""
     parser = argparse.ArgumentParser(
@@ -187,6 +269,13 @@ def main():
     cal_parser.add_argument("--config", default=None, help="区域配置文件路径")
     cal_parser.add_argument("--output", default=None, help="标注图输出路径")
 
+    # recognize 命令: 识别截图并输出 JSON
+    rec_parser = subparsers.add_parser("recognize", help="识别截图中的游戏状态")
+    rec_parser.add_argument("-i", "--image", required=True, help="输入截图文件路径")
+    rec_parser.add_argument("--config", default=None, help="区域配置文件路径")
+    rec_parser.add_argument("--model", default=None, help="ONNX 模型文件路径")
+    rec_parser.add_argument("--template-dir", default=None, help="动作按钮模板目录")
+
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -206,6 +295,14 @@ def main():
     elif args.command == "calibrate":
         from majsoul_recognizer.calibrate import calibrate
         calibrate(args.screenshot, args.config, args.output)
+
+    elif args.command == "recognize":
+        recognize_command([
+            "--image", args.image,
+            *([] if args.config is None else ["--config", args.config]),
+            *([] if args.model is None else ["--model", args.model]),
+            *([] if args.template_dir is None else ["--template-dir", args.template_dir]),
+        ])
 
     else:
         parser.print_help()

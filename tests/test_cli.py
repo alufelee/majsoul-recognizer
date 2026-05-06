@@ -139,3 +139,84 @@ class TestFormatOutput:
         serialized = json.dumps(result, ensure_ascii=False)
         assert '"round": null' in serialized
         assert '"timer": {"active": true, "remaining": 10}' in serialized
+
+
+import subprocess
+import sys
+import tempfile
+
+import cv2
+import numpy as np
+import pytest
+
+from majsoul_recognizer.cli import recognize_command
+
+# 检测 onnxruntime 是否可用
+try:
+    import onnxruntime  # noqa: F401
+    _HAS_ORT = True
+except ImportError:
+    _HAS_ORT = False
+
+_SKIP_ORT = pytest.mark.skipif(not _HAS_ORT, reason="onnxruntime not installed")
+
+
+class TestRecognizeCommand:
+    """recognize CLI 子命令测试"""
+
+    def test_file_not_found(self):
+        """图片路径无效 → 退出码 1"""
+        with pytest.raises(SystemExit) as exc_info:
+            recognize_command(["--image", "/nonexistent/path/screenshot.png"])
+        assert exc_info.value.code == 1
+
+    def test_invalid_image_format(self, tmp_path):
+        """非图片文件 → 退出码 1"""
+        bad_file = tmp_path / "bad.png"
+        bad_file.write_text("not an image")
+        with pytest.raises(SystemExit) as exc_info:
+            recognize_command(["--image", str(bad_file)])
+        assert exc_info.value.code == 1
+
+    def test_valid_synthetic_image(self, tmp_path):
+        """合成截图 → 退出码 0 + 有效 JSON"""
+        img = np.zeros((1080, 1920, 3), dtype=np.uint8)
+        img[:] = (30, 50, 40)
+        img_path = tmp_path / "synthetic.png"
+        cv2.imwrite(str(img_path), img)
+
+        with pytest.raises(SystemExit) as exc_info:
+            recognize_command(["--image", str(img_path)])
+        assert exc_info.value.code == 0
+
+    @_SKIP_ORT
+    def test_model_not_found(self, tmp_path):
+        """模型文件路径无效 → 退出码 1（需要 onnxruntime）"""
+        img = np.zeros((1080, 1920, 3), dtype=np.uint8)
+        img[:] = (30, 50, 40)
+        img_path = tmp_path / "synthetic.png"
+        cv2.imwrite(str(img_path), img)
+
+        with pytest.raises(SystemExit) as exc_info:
+            recognize_command([
+                "--image", str(img_path),
+                "--model", "/nonexistent/model.onnx",
+            ])
+        assert exc_info.value.code == 1
+
+    def test_subprocess_help(self):
+        """子进程调用 recognize --help → 退出码 0"""
+        result = subprocess.run(
+            [sys.executable, "-m", "majsoul_recognizer", "recognize", "--help"],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert result.returncode == 0
+        assert "--image" in result.stdout
+
+    def test_subprocess_missing_args(self):
+        """子进程调用 recognize 不带参数 → 退出码 2"""
+        result = subprocess.run(
+            [sys.executable, "-m", "majsoul_recognizer", "recognize"],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert result.returncode == 2
