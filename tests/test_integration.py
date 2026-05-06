@@ -114,14 +114,12 @@ class TestEndToEndStubDetector:
         assert "round_info" not in data
         assert "timer" in data
 
-    def test_non_static_frame(self, tmp_path):
+    def test_non_static_frame(self):
         """非静态帧 → is_static=false + warnings 含 frame_not_static"""
         from majsoul_recognizer.pipeline import CapturePipeline
-        from majsoul_recognizer.recognition import RecognitionEngine, RecognitionConfig
         from majsoul_recognizer.cli import format_output
 
         pipeline = CapturePipeline()
-        engine = RecognitionEngine(RecognitionConfig())
 
         # 先处理一张图建立参考帧
         img_a = np.zeros((1080, 1920, 3), dtype=np.uint8)
@@ -138,7 +136,7 @@ class TestEndToEndStubDetector:
         assert output["is_static"] is False
         assert "frame_not_static" in output["warnings"]
 
-    def test_output_format_matches_spec(self, tmp_path):
+    def test_output_format_matches_spec(self):
         """输出格式符合产品规格书 §3（round 非 round_info，timer 格式）"""
         from majsoul_recognizer.pipeline import CapturePipeline
         from majsoul_recognizer.recognition import RecognitionEngine, RecognitionConfig
@@ -189,6 +187,7 @@ class TestEndToEndStubDetector:
         )
         assert result.returncode == 1
         assert len(result.stderr) > 0
+        assert len(result.stdout) == 0  # stdout 无输出
 
 
 @_SKIP_ORT

@@ -1,7 +1,7 @@
 """RecognitionConfig 测试"""
 
 import pytest
-from pathlib import Path
+
 from majsoul_recognizer.recognition.config import RecognitionConfig
 
 
@@ -40,10 +40,20 @@ class TestRecognitionConfig:
         config = RecognitionConfig(model_path=model_file)
         assert config.get_model_path() == model_file
 
-    def test_get_template_dir_raises_when_not_found(self):
+    def test_get_template_dir_raises_when_cannot_resolve(self, monkeypatch):
+        """自动解析失败时抛 FileNotFoundError"""
+        from majsoul_recognizer.recognition import config as config_mod
+        monkeypatch.setattr(config_mod, "_resolve_resource_path", lambda _: None)
         config = RecognitionConfig()
-        with pytest.raises(FileNotFoundError, match="templates/"):
+        with pytest.raises(FileNotFoundError, match="templates"):
             config.get_template_dir()
+
+    def test_get_template_dir_resolves_default(self):
+        """默认配置能自动解析到项目的 templates 目录"""
+        config = RecognitionConfig()
+        template_dir = config.get_template_dir()
+        assert template_dir is not None
+        assert template_dir.exists()
 
     def test_get_template_dir_returns_explicit(self, tmp_path):
         template_dir = tmp_path / "templates"

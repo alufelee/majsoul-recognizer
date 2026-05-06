@@ -1,9 +1,30 @@
 """CLI 入口测试"""
 
+import json
 import subprocess
 import sys
 
-from majsoul_recognizer.cli import capture_and_save, build_capture_chain
+import cv2
+import numpy as np
+import pytest
+
+from majsoul_recognizer.cli import (
+    build_capture_chain,
+    capture_and_save,
+    format_output,
+    recognize_command,
+)
+from majsoul_recognizer.types import FrameResult, GameState, RoundInfo
+
+# 检测 onnxruntime 是否可用
+try:
+    import onnxruntime  # noqa: F401
+
+    _HAS_ORT = True
+except ImportError:
+    _HAS_ORT = False
+
+_SKIP_ORT = pytest.mark.skipif(not _HAS_ORT, reason="onnxruntime not installed")
 
 
 class TestBuildCaptureChain:
@@ -12,6 +33,7 @@ class TestBuildCaptureChain:
     def test_chain_returns_pipeline(self):
         """build_capture_chain 返回 CapturePipeline 实例"""
         from majsoul_recognizer.pipeline import CapturePipeline
+
         chain = build_capture_chain()
         assert isinstance(chain, CapturePipeline)
         assert hasattr(chain, "process_image")
@@ -38,16 +60,12 @@ class TestCLIModule:
         """python -m majsoul_recognizer --help 不报错"""
         result = subprocess.run(
             [sys.executable, "-m", "majsoul_recognizer", "--help"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert result.returncode == 0
         assert "capture" in result.stdout or "usage" in result.stdout.lower()
-
-
-import json
-
-from majsoul_recognizer.types import FrameResult, GameState, RoundInfo
-from majsoul_recognizer.cli import format_output
 
 
 class TestFormatOutput:
@@ -141,26 +159,6 @@ class TestFormatOutput:
         assert '"timer": {"active": true, "remaining": 10}' in serialized
 
 
-import subprocess
-import sys
-import tempfile
-
-import cv2
-import numpy as np
-import pytest
-
-from majsoul_recognizer.cli import recognize_command
-
-# 检测 onnxruntime 是否可用
-try:
-    import onnxruntime  # noqa: F401
-    _HAS_ORT = True
-except ImportError:
-    _HAS_ORT = False
-
-_SKIP_ORT = pytest.mark.skipif(not _HAS_ORT, reason="onnxruntime not installed")
-
-
 class TestRecognizeCommand:
     """recognize CLI 子命令测试"""
 
@@ -198,17 +196,23 @@ class TestRecognizeCommand:
         cv2.imwrite(str(img_path), img)
 
         with pytest.raises(SystemExit) as exc_info:
-            recognize_command([
-                "--image", str(img_path),
-                "--model", "/nonexistent/model.onnx",
-            ])
+            recognize_command(
+                [
+                    "--image",
+                    str(img_path),
+                    "--model",
+                    "/nonexistent/model.onnx",
+                ]
+            )
         assert exc_info.value.code == 1
 
     def test_subprocess_help(self):
         """子进程调用 recognize --help → 退出码 0"""
         result = subprocess.run(
             [sys.executable, "-m", "majsoul_recognizer", "recognize", "--help"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert result.returncode == 0
         assert "--image" in result.stdout
@@ -217,6 +221,8 @@ class TestRecognizeCommand:
         """子进程调用 recognize 不带参数 → 退出码 2"""
         result = subprocess.run(
             [sys.executable, "-m", "majsoul_recognizer", "recognize"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert result.returncode == 2
