@@ -23,14 +23,25 @@ macos = [
 windows = [
     "pywin32>=306",
 ]
+recognition-ocr = [
+    "paddleocr>=2.7",
+    "paddlepaddle>=2.5",
+]
+recognition-detector = [
+    "onnxruntime>=1.16",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "ruff>=0.4",
+    "onnx>=1.14",
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+majsoul_recognizer = ["ocr_dicts/*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

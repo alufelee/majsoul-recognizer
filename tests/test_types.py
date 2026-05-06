@@ -10,6 +10,8 @@ from majsoul_recognizer.types import (
     ZoneName,
     Detection,
     RoundInfo,
+    CallGroup,
+    ActionMatch,
     GameState,
     FrameResult,
 )
@@ -128,6 +130,58 @@ class TestRoundInfo:
             RoundInfo(wind="东", number=5, honba=0, kyotaku=0)
 
 
+class TestCallGroup:
+    """副露组测试"""
+
+    def test_create_chi(self):
+        call = CallGroup(type="chi", tiles=["1s", "2s", "3s"], rotated_index=0, from_player="right")
+        assert call.type == "chi"
+        assert len(call.tiles) == 3
+        assert call.rotated_index == 0
+
+    def test_create_pon(self):
+        call = CallGroup(type="pon", tiles=["5p", "5p", "5p"], rotated_index=1, from_player="opposite")
+        assert call.type == "pon"
+
+    def test_create_ankan(self):
+        call = CallGroup(type="ankan", tiles=["1z", "1z", "1z", "1z"])
+        assert call.rotated_index is None
+        assert call.from_player is None
+
+    def test_rotated_index_zero_is_valid(self):
+        """rotated_index=0 是合法值，不是 falsy"""
+        call = CallGroup(type="chi", tiles=["1s", "2s", "3s"], rotated_index=0)
+        assert call.rotated_index is not None
+        assert call.rotated_index == 0
+
+    def test_invalid_type_raises(self):
+        with pytest.raises(ValidationError):
+            CallGroup(type="invalid", tiles=["1m"])
+
+    def test_frozen(self):
+        call = CallGroup(type="chi", tiles=["1s", "2s", "3s"])
+        with pytest.raises(ValidationError):
+            call.type = "pon"
+
+
+class TestActionMatch:
+    """动作匹配结果测试"""
+
+    def test_create_action(self):
+        action = ActionMatch(name="碰", score=0.92)
+        assert action.name == "碰"
+        assert action.score == 0.92
+
+    def test_score_range(self):
+        with pytest.raises(ValidationError):
+            ActionMatch(name="碰", score=1.5)
+
+    def test_frozen(self):
+        action = ActionMatch(name="碰", score=0.9)
+        with pytest.raises(ValidationError):
+            action.score = 0.5
+
+
 class TestGameState:
     """游戏状态测试"""
 
@@ -136,15 +190,39 @@ class TestGameState:
         assert state.hand == []
         assert state.scores == {}
         assert state.round_info is None
+        assert state.calls == {}
 
     def test_state_with_data(self):
         state = GameState(
             hand=["1m", "2m", "3m"],
             drawn_tile="东",
             dora_indicators=["5m"],
+            scores={"self": 25000, "right": 25000},
         )
         assert len(state.hand) == 3
         assert state.drawn_tile == "东"
+        assert state.scores["self"] == 25000
+
+    def test_frozen_cannot_mutate(self):
+        state = GameState(hand=["1m"])
+        with pytest.raises(ValidationError):
+            state.hand = ["2m"]
+
+    def test_model_copy_update(self):
+        """frozen 模式使用 model_copy 返回新实例"""
+        state = GameState(warnings=[])
+        new_state = state.model_copy(update={"warnings": ["test_warning"]})
+        assert state.warnings == []
+        assert new_state.warnings == ["test_warning"]
+
+    def test_calls_with_call_group(self):
+        call = CallGroup(type="chi", tiles=["1s", "2s", "3s"], rotated_index=0)
+        state = GameState(calls={"self": [call]})
+        assert state.calls["self"][0].type == "chi"
+
+    def test_scores_are_int(self):
+        state = GameState(scores={"self": 25000})
+        assert isinstance(state.scores["self"], int)
 
 
 class TestFrameResult:
@@ -154,7 +232,7 @@ class TestFrameResult:
         result = FrameResult(
             frame_id=1,
             timestamp="2026-05-06T10:00:00",
-            zones={ZoneName.HAND: np.zeros((100, 200, 3), dtype=np.uint8)},
+            zones={"hand": np.zeros((100, 200, 3), dtype=np.uint8)},
         )
         assert result.frame_id == 1
-        assert ZoneName.HAND in result.zones
+        assert "hand" in result.zones

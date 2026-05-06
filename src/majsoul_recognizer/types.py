@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any
+from typing import Literal
 
 import numpy as np
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -132,20 +132,37 @@ class RoundInfo(BaseModel):
         return v
 
 
-class PlayerScore(BaseModel):
-    """单名玩家分数信息"""
-    score: int = Field(ge=0)
-    rank: int | None = Field(default=None, ge=1, le=4)
+CallType = Literal["chi", "pon", "kan", "ankan", "kakan"]
+
+
+class CallGroup(BaseModel):
+    """一组副露（吃/碰/杠）
+
+    rotated_index 使用 is not None 检查（0 是合法值，表示横置牌在第一个位置）。
+    """
+    model_config = {"frozen": True}
+    type: CallType
+    tiles: list[str]
+    rotated_index: int | None = None
+    from_player: str | None = None
+
+
+class ActionMatch(BaseModel):
+    """动作按钮匹配结果"""
+    model_config = {"frozen": True}
+    name: str
+    score: float = Field(ge=0.0, le=1.0)
 
 
 class GameState(BaseModel):
-    """游戏全局状态 (跨帧持久化)"""
+    """游戏全局状态"""
+    model_config = {"frozen": True}
     round_info: RoundInfo | None = None
     dora_indicators: list[str] = Field(default_factory=list)
-    scores: dict[str, int | PlayerScore] = Field(default_factory=dict)
+    scores: dict[str, int] = Field(default_factory=dict)
     hand: list[str] = Field(default_factory=list)
     drawn_tile: str | None = None
-    calls: dict[str, list[Any]] = Field(default_factory=dict)
+    calls: dict[str, list[CallGroup]] = Field(default_factory=dict)
     discards: dict[str, list[str]] = Field(default_factory=dict)
     actions: list[str] = Field(default_factory=list)
     timer_remaining: int | None = None
