@@ -1,0 +1,74 @@
+# 雀魂麻将区域坐标定义
+# 坐标为比例值 (0.0-1.0)，基于 1920x1080 基准分辨率
+
+zones:
+  hand:
+    x: 0.25
+    y: 0.82
+    width: 0.50
+    height: 0.12
+  dora:
+    x: 0.35
+    y: 0.02
+    width: 0.15
+    height: 0.06
+  round_info:
+    x: 0.42
+    y: 0.02
+    width: 0.16
+    height: 0.06
+  score_self:
+    x: 0.35
+    y: 0.75
+    width: 0.12
+    height: 0.05
+  score_right:
+    x: 0.85
+    y: 0.45
+    width: 0.10
+    height: 0.05
+  score_opposite:
+    x: 0.42
+    y: 0.10
+    width: 0.12
+    height: 0.05
+  score_left:
+    x: 0.05
+    y: 0.45
+    width: 0.10
+    height: 0.05
+  discards_self:
+    x: 0.20
+    y: 0.68
+    width: 0.50
+    height: 0.10
+  discards_right:
+    x: 0.75
+    y: 0.25
+    width: 0.15
+    height: 0.35
+  discards_opposite:
+    x: 0.25
+    y: 0.18
+    width: 0.50
+    height: 0.10
+  discards_left:
+    x: 0.10
+    y: 0.25
+    width: 0.15
+    height: 0.35
+  calls_self:
+    x: 0.05
+    y: 0.82
+    width: 0.20
+    height: 0.10
+  actions:
+    x: 0.70
+    y: 0.82
+    width: 0.25
+    height: 0.10
+  timer:
+    x: 0.45
+    y: 0.92
+    width: 0.10
+    height: 0.06
