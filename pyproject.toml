@@ -33,6 +33,10 @@ recognition-ocr = [
 recognition-detector = [
     "onnxruntime>=1.16",
 ]
+training = [
+    "ultralytics>=8.1",
+]
+
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
