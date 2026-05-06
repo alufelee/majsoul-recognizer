@@ -7,6 +7,7 @@
 """
 
 import argparse
+import json as _json
 import logging
 import sys
 from pathlib import Path
@@ -17,6 +18,7 @@ import numpy as np
 from majsoul_recognizer.capture.finder import create_finder
 from majsoul_recognizer.capture.screenshot import create_capture
 from majsoul_recognizer.pipeline import CapturePipeline
+from majsoul_recognizer.types import FrameResult, GameState
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +100,54 @@ def capture_from_screen(output_dir: Path, config_path: str | None = None) -> boo
     output = capture_and_save(image, output_dir, build_capture_chain(config_path))
     logger.info(f"Zones saved to: {output}")
     return True
+
+
+def format_output(frame: FrameResult, state: GameState | None) -> dict:
+    """将 FrameResult + GameState 转换为产品规格书 §3 格式的 dict
+
+    Args:
+        frame: 帧处理结果
+        state: 识别结果，None 表示非静态帧（跳过识别）
+
+    Returns:
+        可被 json.dumps 序列化的 dict
+    """
+    if state is None:
+        return {
+            "frame_id": frame.frame_id,
+            "timestamp": frame.timestamp,
+            "is_static": False,
+            "round": None,
+            "dora_indicators": [],
+            "scores": {},
+            "hand": [],
+            "drawn_tile": None,
+            "calls": {},
+            "discards": {},
+            "actions": [],
+            "timer": None,
+            "warnings": ["frame_not_static"],
+        }
+
+    timer = None
+    if state.timer_remaining is not None:
+        timer = {"active": True, "remaining": state.timer_remaining}
+
+    return {
+        "frame_id": frame.frame_id,
+        "timestamp": frame.timestamp,
+        "is_static": True,
+        "round": state.round_info.model_dump() if state.round_info else None,
+        "dora_indicators": state.dora_indicators,
+        "scores": state.scores,
+        "hand": state.hand,
+        "drawn_tile": state.drawn_tile,
+        "calls": {k: [c.model_dump() for c in v] for k, v in state.calls.items()},
+        "discards": state.discards,
+        "actions": state.actions,
+        "timer": timer,
+        "warnings": state.warnings,
+    }
 
 
 def main():
