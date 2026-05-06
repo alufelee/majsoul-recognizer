@@ -15,6 +15,9 @@ dependencies = [
     "PyYAML>=6.0",
 ]
 
+[project.scripts]
+majsoul-recognizer = "majsoul_recognizer.cli:main"
+
 [project.optional-dependencies]
 macos = [
     "pyobjc-framework-Quartz>=10.0",
