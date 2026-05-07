@@ -1,0 +1,29 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# 系统依赖（OpenCV headless + ultralytics）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安装项目 + 训练依赖（分步安装，避免大包下载失败）
+COPY pyproject.toml .
+COPY src/ src/
+COPY config/ config/
+COPY tools/ tools/
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu || \
+    pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir ultralytics onnxruntime onnx && \
+    pip install --no-cache-dir ".[dev]"
+
+# 合成数据生成 + 训练 + 导出 一键脚本
+COPY tools/train_all.sh /usr/local/bin/train_all.sh
+RUN chmod +x /usr/local/bin/train_all.sh
+
+# 数据输出卷
+VOLUME /app/data
+VOLUME /app/models
+
+CMD ["train_all.sh"]
