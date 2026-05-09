@@ -47,3 +47,16 @@ class ZoneSplitter:
             return np.array([])
         bbox = zone_def.to_bbox(BASE_WIDTH, BASE_HEIGHT)
         return bbox.crop(image)
+
+    def get_zone_rects(
+        self, img_shape: tuple[int, ...]
+    ) -> dict[str, tuple[int, int, int, int]]:
+        """获取各区域在归一化图像上的像素矩形 (x, y, w, h)"""
+        rects: dict[str, tuple[int, int, int, int]] = {}
+        for name in self._config.zone_names:
+            zone_def = self._config.get_zone(name)
+            if zone_def is None:
+                continue
+            bbox = zone_def.to_bbox(BASE_WIDTH, BASE_HEIGHT)
+            rects[name.value] = (bbox.x, bbox.y, bbox.width, bbox.height)
+        return rects

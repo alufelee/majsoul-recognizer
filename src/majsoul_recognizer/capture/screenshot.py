@@ -19,7 +19,7 @@ class ScreenCapture:
     """屏幕截图器"""
 
     def __init__(self):
-        self._sct = mss.MSS()
+        self._sct = mss.mss()
 
     def capture_window(self, window_info: WindowInfo) -> np.ndarray | None:
         try:

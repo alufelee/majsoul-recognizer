@@ -5,8 +5,8 @@ zones:
   hand:
     x: 0.25
     y: 0.82
-    width: 0.50
-    height: 0.12
+    width: 0.55
+    height: 0.14
   dora:
     x: 0.35
     y: 0.02
@@ -61,14 +61,14 @@ zones:
     x: 0.05
     y: 0.82
     width: 0.20
-    height: 0.10
+    height: 0.14
   actions:
-    x: 0.70
+    x: 0.82
     y: 0.82
-    width: 0.25
-    height: 0.10
+    width: 0.18
+    height: 0.14
   timer:
     x: 0.45
-    y: 0.92
+    y: 0.96
     width: 0.10
-    height: 0.06
+    height: 0.04

@@ -89,15 +89,20 @@ class CapturePipeline:
             raw_zones = self._splitter.split(image)
             # 将 ZoneName 枚举键转为字符串，保持 FrameResult 类型一致
             zones = {zone_name.value: img for zone_name, img in raw_zones.items()}
+            # 计算区域像素矩形（用于全图检测）
+            zone_rects = self._splitter.get_zone_rects(image.shape[:2])
         else:
             # 动画帧使用空区域，调用者应沿用上一帧结果
             zones = {}
+            zone_rects = {}
 
         return FrameResult(
             frame_id=self._frame_count,
             timestamp=datetime.now(timezone.utc).isoformat(),
             zones=zones,
             is_static=is_static,
+            full_image=image if is_static else None,
+            zone_rects=zone_rects if is_static else None,
         )
 
     @property

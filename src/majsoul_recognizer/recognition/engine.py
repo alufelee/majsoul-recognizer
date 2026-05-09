@@ -20,9 +20,16 @@ try:
 except ImportError:
     _HAS_ORT = False
 
+# 检查 ultralytics 是否可用
+try:
+    from ultralytics import YOLO  # noqa: F401
+    _HAS_ULTRALYTICS = True
+except ImportError:
+    _HAS_ULTRALYTICS = False
+
 
 class _StubDetector:
-    """onnxruntime 不可用时的降级检测器"""
+    """检测器不可用时的降级检测器"""
 
     def detect(self, image: np.ndarray, confidence: float = 0.7) -> list[Detection]:
         return []
@@ -53,7 +60,15 @@ class RecognitionEngine:
 
     def _ensure_detector(self):
         if self._detector is None:
-            if _HAS_ORT:
+            # 优先使用 ultralytics 预训练模型（真实画面效果更好）
+            pt_path = self._config.get_ultralytics_model_path()
+            if pt_path is not None and _HAS_ULTRALYTICS:
+                from majsoul_recognizer.recognition.ultralytics_detector import (
+                    UltralyticsTileDetector,
+                )
+                self._detector = UltralyticsTileDetector(pt_path)
+                logger.info("Using ultralytics detector: %s", pt_path)
+            elif _HAS_ORT:
                 from majsoul_recognizer.recognition.tile_detector import TileDetector
                 model_path = self._config.get_model_path()
                 self._detector = TileDetector(
@@ -61,7 +76,7 @@ class RecognitionEngine:
                     nms_iou=self._config.nms_iou_threshold,
                 )
             else:
-                logger.warning("onnxruntime not available, using stub detector")
+                logger.warning("No detector available, using stub")
                 self._detector = _StubDetector()
         return self._detector
 
@@ -77,8 +92,19 @@ class RecognitionEngine:
             self._matcher = PatternMatcher(self._config.get_template_dir())
         return self._matcher
 
-    def recognize(self, zones: dict[str, np.ndarray]) -> GameState:
-        """识别完整的游戏状态"""
+    def recognize(
+        self,
+        zones: dict[str, np.ndarray],
+        full_image: np.ndarray | None = None,
+        zone_rects: dict[str, tuple[int, int, int, int]] | None = None,
+    ) -> GameState:
+        """识别完整的游戏状态
+
+        Args:
+            zones: 区域名 -> 区域图像
+            full_image: 完整游戏截图（可选，用于全图检测模式）
+            zone_rects: 区域名 -> (x, y, w, h) 像素矩形（可选）
+        """
         if not zones:
             return GameState(warnings=["empty_zones"])
 
@@ -91,15 +117,41 @@ class RecognitionEngine:
         # 1. 牌面检测
         tile_zone_names = ["hand", "dora", "discards_self", "discards_right",
                            "discards_opposite", "discards_left", "calls_self"]
-        tile_images = [(name, zones[name]) for name in tile_zone_names if name in zones]
 
         confidence = self._config.detection_confidence
         detector = self._ensure_detector()
 
-        if self._config.enable_batch_detection and len(tile_images) > 1:
-            detections = detector.detect_batch(tile_images, confidence)
+        # 判断是否使用全图检测模式
+        use_full_image = (
+            full_image is not None
+            and zone_rects is not None
+            and hasattr(detector, "detect_full_image")
+        )
+
+        if use_full_image:
+            tile_rects = {name: zone_rects[name] for name in tile_zone_names
+                         if name in zone_rects}
+            from majsoul_recognizer.recognition.ultralytics_detector import (
+                UltralyticsTileDetector,
+            )
+            assert isinstance(detector, UltralyticsTileDetector)
+            # zone_rects 基于 1920x1080 归一化坐标，需缩放到全图实际尺寸
+            img_h, img_w = full_image.shape[:2]
+            scale_x = img_w / 1920.0
+            scale_y = img_h / 1080.0
+            scaled_rects = {}
+            for name, (x, y, w, h) in tile_rects.items():
+                scaled_rects[name] = (
+                    int(x * scale_x), int(y * scale_y),
+                    int(w * scale_x), int(h * scale_y),
+                )
+            detections = detector.detect_full_image(full_image, scaled_rects, confidence)
         else:
-            detections = {name: detector.detect(img, confidence) for name, img in tile_images}
+            tile_images = [(name, zones[name]) for name in tile_zone_names if name in zones]
+            if self._config.enable_batch_detection and len(tile_images) > 1:
+                detections = detector.detect_batch(tile_images, confidence)
+            else:
+                detections = {name: detector.detect(img, confidence) for name, img in tile_images}
 
         # 设置 zone_name
         for zone_name_str, dets in detections.items():
@@ -114,6 +166,25 @@ class RecognitionEngine:
 
         # 2. Detection 级帧间融合
         detections = self._validator.fuse_detections(detections)
+
+        # 2.5: 将 calls_self 中不合理的检测结果合并到 hand
+        # 当玩家没有副露时，手牌可能溢出到 calls_self 区域
+        calls_dets = detections.get("calls_self", [])
+        if calls_dets and "hand" in detections:
+            tiles = [d.tile_code for d in calls_dets]
+            suits = set()
+            for t in tiles:
+                if t[-1] in ("m", "p", "s"):
+                    suits.add(t[-1])
+            # chi 需要 3 张同花色连续牌, pon 需要 3 张相同
+            n = len(tiles)
+            valid_chi = n == 3 and len(suits) == 1 and len(set(tiles)) >= 2
+            valid_pon = n == 3 and len(set(tiles)) == 1
+            valid_kan = n == 4 and len(set(tiles)) == 1
+            if not (valid_chi or valid_pon or valid_kan):
+                logger.debug("Merging calls_self into hand: %s", tiles)
+                detections["hand"] = list(detections["hand"]) + calls_dets
+                detections["calls_self"] = []
 
         # 3. 文字识别
         ocr = self._ensure_ocr()

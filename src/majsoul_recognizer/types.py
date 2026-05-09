@@ -178,3 +178,5 @@ class FrameResult(BaseModel):
     zones: dict[str, np.ndarray] = Field(default_factory=dict)
     is_static: bool = True
     game_state: GameState | None = None
+    full_image: np.ndarray | None = None
+    zone_rects: dict[str, tuple[int, int, int, int]] | None = None

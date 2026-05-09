@@ -244,7 +244,7 @@ class GameStateBuilder:
             gaps.append(gap)
 
         median_gap = float(median(gaps)) if gaps else 0
-        threshold = median_gap * self._config.call_group_gap_multiplier
+        threshold = max(median_gap * self._config.call_group_gap_multiplier, 10)
 
         groups: list[list[Detection]] = []
         current_group = [normals[0]]
@@ -358,11 +358,11 @@ class Validator:
         warnings: list[str] = list(state.warnings)
 
         # 规则 1: 手牌数量
-        kan_count = sum(
-            1 for group in state.calls.values()
-            for c in group if c.type in ("kan", "ankan", "kakan")
+        # 每组副露: chi/pon 减少 3 张手牌, kan/ankan/kakan 减少 4 张
+        call_tile_count = sum(
+            len(c.tiles) for group in state.calls.values() for c in group
         )
-        expected = 13 - kan_count
+        expected = 13 - call_tile_count
         actual = len(state.hand)
         if actual != expected:
             warnings.append(f"hand_count_mismatch: got {actual}, expected {expected}")
