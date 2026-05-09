@@ -36,6 +36,9 @@ recognition-detector = [
 training = [
     "ultralytics>=8.1",
 ]
+gui = [
+    "Pillow>=10.0",
+]
 
 dev = [
     "pytest>=7.0",

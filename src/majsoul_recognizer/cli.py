@@ -156,13 +156,10 @@ def recognize_command(argv: list[str] | None = None) -> None:
     Args:
         argv: 命令行参数，None 时从 sys.argv 读取
     """
-    import argparse as _argparse
-    import logging
-
     # 抑制非关键日志输出到 stderr（设计规格 §4.6）
     logging.getLogger("majsoul_recognizer").setLevel(logging.WARNING)
 
-    parser = _argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(
         prog="majsoul-recognizer recognize",
         description="识别截图中的游戏状态并输出 JSON",
     )
@@ -276,6 +273,9 @@ def main():
     rec_parser.add_argument("--model", default=None, help="ONNX 模型文件路径")
     rec_parser.add_argument("--template-dir", default=None, help="动作按钮模板目录")
 
+    # gui 命令: 启动图形界面
+    subparsers.add_parser("gui", help="启动图形界面")
+
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -303,6 +303,10 @@ def main():
             *([] if args.model is None else ["--model", args.model]),
             *([] if args.template_dir is None else ["--template-dir", args.template_dir]),
         ])
+
+    elif args.command == "gui":
+        from majsoul_recognizer.gui import main
+        main()
 
     else:
         parser.print_help()
