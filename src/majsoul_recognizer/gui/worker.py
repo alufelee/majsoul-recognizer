@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import queue
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -24,6 +24,7 @@ class _WorkerResult:
     image: np.ndarray | None = None
     frame: FrameResult | None = None
     state: GameState | None = None
+    detections: list = field(default_factory=list)
     error: str | None = None
 
     @property
