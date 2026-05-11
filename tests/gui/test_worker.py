@@ -148,3 +148,46 @@ class TestRecognizeWorker:
         # 引用已更新（内部 _engine_ref 指向 new_engine）
         assert worker._engine_ref is new_engine
         worker.stop()
+
+    def test_engine_none_does_not_crash(self):
+        """[C2] engine=None 降级模式不崩溃，state 返回 None"""
+        pipeline = MagicMock()
+        pipeline.process_image.return_value = _make_frame_result(is_static=True)
+        worker = _RecognizeWorker(None, pipeline)
+
+        worker.submit(_make_image())
+        result = _poll_result(worker)
+
+        assert not result.is_error
+        assert result.state is None  # engine 为 None，跳过识别
+        worker.stop()
+
+    def test_engine_none_update_to_valid(self):
+        """[C2] engine=None 可热更新为有效引擎"""
+        pipeline = MagicMock()
+        pipeline.process_image.return_value = _make_frame_result(is_static=True)
+        worker = _RecognizeWorker(None, pipeline)
+
+        state = MagicMock()
+        new_engine = MagicMock()
+        new_engine.recognize.return_value = state
+        worker.update_engine(new_engine)
+
+        worker.submit(_make_image())
+        result = _poll_result(worker)
+
+        assert result.state is state
+        worker.stop()
+
+    def test_engine_none_non_static_frame(self):
+        """[LOW] engine=None + 非静态帧：state 应为 None"""
+        pipeline = MagicMock()
+        pipeline.process_image.return_value = _make_frame_result(is_static=False)
+        worker = _RecognizeWorker(None, pipeline)
+
+        worker.submit(_make_image())
+        result = _poll_result(worker)
+
+        assert not result.is_error
+        assert result.state is None
+        worker.stop()

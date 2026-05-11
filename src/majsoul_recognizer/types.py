@@ -170,7 +170,11 @@ class GameState(BaseModel):
 
 
 class FrameResult(BaseModel):
-    """单帧处理结果"""
+    """单帧处理结果
+
+    注意: zones 使用 numpy 数组，不支持 Pydantic 序列化/反序列化。
+    如需 JSON 输出，请使用 cli.format_output() 提取标量字段。
+    """
     model_config = {"arbitrary_types_allowed": True}
 
     frame_id: int

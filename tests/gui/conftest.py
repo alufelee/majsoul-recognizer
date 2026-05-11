@@ -2,7 +2,6 @@
 
 仅注册 needs_tk marker 供 Spec C 中 tkinter 相关测试使用。
 """
-import pytest
 
 
 def pytest_configure(config):

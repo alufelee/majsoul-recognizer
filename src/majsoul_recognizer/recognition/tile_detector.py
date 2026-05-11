@@ -131,9 +131,8 @@ def _assign_to_slot(
 
         assigned = False
         for slot in slots:
-            sx2 = slot.x_offset + slot.slot_size
-            sy2 = slot.y_offset + slot.slot_size
-            if slot.x_offset <= cx <= sx2 and slot.y_offset <= cy <= sy2:
+            x1, y1, x2, y2 = slot.image_rect
+            if x1 <= cx <= x2 and y1 <= cy <= y2:
                 local_bbox = _canvas_to_local(det.bbox, slot)
                 local_det = det.model_copy(update={"bbox": local_bbox})
                 result[slot.zone_name].append(local_det)

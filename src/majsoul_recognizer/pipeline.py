@@ -46,7 +46,15 @@ def _get_default_config_path() -> Path:
     return dev_path
 
 
-_DEFAULT_CONFIG_PATH = _get_default_config_path()
+_DEFAULT_CONFIG_PATH: Path | None = None
+
+
+def _get_default_config() -> Path:
+    """延迟获取默认配置路径"""
+    global _DEFAULT_CONFIG_PATH
+    if _DEFAULT_CONFIG_PATH is None:
+        _DEFAULT_CONFIG_PATH = _get_default_config_path()
+    return _DEFAULT_CONFIG_PATH
 
 
 class CapturePipeline:
@@ -66,7 +74,7 @@ class CapturePipeline:
         config_path: Path | str | None = None,
         frame_threshold: float = 0.02,
     ):
-        config_path = Path(config_path) if config_path else _DEFAULT_CONFIG_PATH
+        config_path = Path(config_path) if config_path else _get_default_config()
         config = load_zone_config(config_path)
 
         self._splitter = ZoneSplitter(config)

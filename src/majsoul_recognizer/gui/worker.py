@@ -39,7 +39,7 @@ class _RecognizeWorker:
     通过 result_queue（maxsize=1）传递结果，旧结果自动丢弃。
     """
 
-    def __init__(self, engine: RecognitionEngine, pipeline: CapturePipeline) -> None:
+    def __init__(self, engine: RecognitionEngine | None, pipeline: CapturePipeline) -> None:
         self._engine_ref = engine
         self._pipeline_ref = pipeline
         self._task: np.ndarray | None = None
@@ -49,7 +49,7 @@ class _RecognizeWorker:
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
-    def update_engine(self, engine: RecognitionEngine) -> None:
+    def update_engine(self, engine: RecognitionEngine | None) -> None:
         """更新 engine 引用（线程安全）
 
         _run() 每次循环开头持有 engine 本地引用（S2），
@@ -78,7 +78,7 @@ class _RecognizeWorker:
             engine = self._engine_ref
             try:
                 frame = self._pipeline_ref.process_image(image)
-                state = engine.recognize(frame.zones) if frame.is_static else None
+                state = engine.recognize(frame.zones) if (engine and frame.is_static) else None
                 result = _WorkerResult(image=image, frame=frame, state=state)
             except Exception as e:
                 result = _WorkerResult(error=str(e))

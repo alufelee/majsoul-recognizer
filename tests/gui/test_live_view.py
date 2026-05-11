@@ -80,3 +80,29 @@ class TestLiveViewLifecycle:
     def test_on_theme_changed(self, view):
         view.on_theme_changed(Theme.LIGHT)
         assert view._theme is Theme.LIGHT
+
+
+class TestLiveViewDuplicateThreadGuard:
+    """[C5] 连续调用 _on_start 不应创建多个捕获线程"""
+
+    def test_duplicate_start_ignored(self, view):
+        view._on_start()
+        assert view._capture_thread is not None
+        first_thread = view._capture_thread
+
+        view._on_start()  # 第二次调用应被忽略
+        assert view._capture_thread is first_thread
+
+        # 清理
+        view._on_reset()
+
+    def test_start_after_reset_creates_new_thread(self, view):
+        view._on_start()
+        first_thread = view._capture_thread
+
+        view._on_reset()
+        view._on_start()
+        assert view._capture_thread is not first_thread
+
+        # 清理
+        view._on_reset()

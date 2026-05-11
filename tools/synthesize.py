@@ -189,11 +189,25 @@ def _generate_single_image(
     # 随机选择牌面和位置
     num_tiles = random.randint(max(1, tiles_per_image // 2), tiles_per_image)
     tiles = []
-    for _ in range(num_tiles):
+    occupied: list[tuple[int, int, int, int]] = []  # (x, y, w, h) 已放置区域
+    max_attempts = num_tiles * 5
+    attempts = 0
+    while len(tiles) < num_tiles and attempts < max_attempts:
+        attempts += 1
         cls = random.choice(CLASS_NAMES)
         x = random.randint(0, image_size - tile_w)
         y = random.randint(0, image_size - tile_h)
+        # 检查与已放置牌面的重叠
+        overlap = False
+        for ox, oy, ow, oh in occupied:
+            if (x < ox + ow and x + tile_w > ox and
+                    y < oy + oh and y + tile_h > oy):
+                overlap = True
+                break
+        if overlap:
+            continue
         tiles.append((cls, x, y))
+        occupied.append((x, y, tile_w, tile_h))
 
     image, labels = place_tiles(bg, tiles, tile_w, tile_h)
     image = _augment_image(image)

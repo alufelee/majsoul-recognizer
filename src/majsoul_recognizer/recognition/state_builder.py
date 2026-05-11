@@ -17,6 +17,11 @@ _AUXILIARY_CODES = frozenset(["back", "rotated", "dora_frame"])
 # 赤宝牌合并映射
 _RED_DORA_MERGE = {"5mr": "5m", "5pr": "5p", "5sr": "5s"}
 
+
+def normalize_tile_code(tile_code: str) -> str:
+    """将赤宝牌编码归一化为普通牌编码"""
+    return _RED_DORA_MERGE.get(tile_code, tile_code)
+
 # rotated_index → from_player 映射 (spec §8.2)
 _ROTATED_INDEX_TO_PLAYER = {
     (0, "chi"): "right",
@@ -117,7 +122,7 @@ class GameStateBuilder:
         actions: list[ActionMatch],
         prev_state: GameState | None = None,
     ) -> GameState:
-        hand, drawn_tile = self._build_hand(detections.get("hand", []), prev_state)
+        hand, drawn_tile, hand_warnings = self._build_hand(detections.get("hand", []), prev_state)
         dora_indicators = self._build_dora(detections.get("dora", []))
         state_scores = self._build_scores(scores)
         discards = self._build_discards(detections)
@@ -134,20 +139,21 @@ class GameStateBuilder:
             discards=discards,
             actions=state_actions,
             timer_remaining=timer,
-            warnings=call_warnings,
+            warnings=hand_warnings + call_warnings,
         )
 
-    def _build_hand(self, dets: list[Detection], prev_state: GameState | None = None) -> tuple[list[str], str | None]:
-        """构建手牌，返回 (hand_list, drawn_tile)"""
+    def _build_hand(self, dets: list[Detection], prev_state: GameState | None = None) -> tuple[list[str], str | None, list[str]]:
+        """构建手牌，返回 (hand_list, drawn_tile, warnings)"""
+        warnings: list[str] = []
         valid = [d for d in dets if d.tile_code not in _AUXILIARY_CODES]
         if not valid:
-            return [], None
+            return [], None, warnings
 
         sorted_dets = sorted(valid, key=lambda d: d.bbox.x)
 
         if len(sorted_dets) <= 1:
             codes = [d.tile_code for d in sorted_dets]
-            return codes, None
+            return codes, None, warnings
 
         # 计算间距
         gaps = []
@@ -156,7 +162,7 @@ class GameStateBuilder:
             gaps.append(gap)
 
         if not gaps:
-            return [d.tile_code for d in sorted_dets], None
+            return [d.tile_code for d in sorted_dets], None, warnings
 
         median_gap = float(median(gaps))
         threshold = median_gap * self._config.drawn_tile_gap_multiplier
@@ -169,29 +175,25 @@ class GameStateBuilder:
                 break
 
         if drawn_tile_idx >= 0:
-            hand_codes = [d.tile_code for d in sorted_dets[:drawn_tile_idx]]
-            hand_codes.extend(d.tile_code for d in sorted_dets[drawn_tile_idx + 1:])
+            # 大间距前后的牌都保留在手牌中，间距位置的牌为 drawn_tile
+            before = [d.tile_code for d in sorted_dets[:drawn_tile_idx]]
+            after = [d.tile_code for d in sorted_dets[drawn_tile_idx + 1:]]
+            hand_codes = before + after
             drawn_tile = sorted_dets[drawn_tile_idx].tile_code
-            return hand_codes, drawn_tile
+            return hand_codes, drawn_tile, warnings
 
         # 无大间距: 14 张时最后一张为 drawn_tile
         if len(sorted_dets) == 14:
-            return [d.tile_code for d in sorted_dets[:-1]], sorted_dets[-1].tile_code
+            return [d.tile_code for d in sorted_dets[:-1]], sorted_dets[-1].tile_code, warnings
 
         # 13 张无间距: 根据 prev_state 判断
         if len(sorted_dets) == 13 and prev_state is not None:
             prev_hand_len = len(prev_state.hand)
-            if prev_hand_len == 13 and prev_state.drawn_tile is None:
-                # 上一帧也在等摸牌，当前帧正常 13 张
-                return [d.tile_code for d in sorted_dets], None
-            elif prev_hand_len == 12 or (prev_hand_len == 13 and prev_state.drawn_tile is not None):
-                # 上一帧 12 张 或 上一帧 13+drawn（摸牌后丢弃一张），
-                # 当前帧应有 drawn_tile 但无法定位
-                return [d.tile_code for d in sorted_dets], None
-                # 注意: 此处应添加 warning，但 _build_hand 无法直接添加。
-                # drawn_tile 不可定位的情况由 Validator 的 hand_count 校验覆盖。
+            if prev_hand_len == 12 or (prev_hand_len == 13 and prev_state.drawn_tile is not None):
+                # 上一帧 12 张或 13+drawn，当前帧应有 drawn_tile 但无法定位
+                warnings.append("hand_13_no_gap: drawn_tile position unknown")
 
-        return [d.tile_code for d in sorted_dets], None
+        return [d.tile_code for d in sorted_dets], None, warnings
 
     def _build_dora(self, dets: list[Detection]) -> list[str]:
         """构建宝牌指示器"""
@@ -266,9 +268,10 @@ class GameStateBuilder:
             # Check rotated_map for this group
             rotated_idx_in_group: int | None = None
             for pi, det in enumerate(group):
-                # 在 filtered 中找到此 detection 的索引，然后查找 rotated_map
+                # 使用 bbox + tile_code 属性比较，而非引用相等性 (is)
                 for fi, fd in enumerate(filtered):
-                    if fd is det and fi in rotated_map and rotated_map[fi] is not None:
+                    if (fd.bbox == det.bbox and fd.tile_code == det.tile_code
+                            and fi in rotated_map and rotated_map[fi] is not None):
                         rotated_idx_in_group = pi
                         break
                 if rotated_idx_in_group is not None:
@@ -316,8 +319,8 @@ class GameStateBuilder:
         if prev_state is not None:
             for prev_call in prev_state.calls.get("self", []):
                 if prev_call.type == "pon":
-                    prev_normalized = {_RED_DORA_MERGE.get(t, t) for t in prev_call.tiles}
-                    curr_normalized = {_RED_DORA_MERGE.get(t, t) for t in tiles}
+                    prev_normalized = {normalize_tile_code(t) for t in prev_call.tiles}
+                    curr_normalized = {normalize_tile_code(t) for t in tiles}
                     if prev_normalized == curr_normalized:
                         return CallGroup(
                             type="kakan", tiles=tiles,
@@ -326,7 +329,7 @@ class GameStateBuilder:
                         ), []
 
         # 无 prev_state 匹配: 默认 kan，但如果有 rotated 可能是 kakan
-        if rotated_index is not None and len(set(_RED_DORA_MERGE.get(t, t) for t in tiles)) == 1:
+        if rotated_index is not None and len(set(normalize_tile_code(t) for t in tiles)) == 1:
             # 4 张相同牌 + rotated，可能是 kakan 但无法确认
             warnings.append("kakan_unknown_source: no prev_state match, treating as kan")
 
@@ -362,8 +365,10 @@ class Validator:
             1 for group in state.calls.values()
             for c in group if c.type in ("kan", "ankan", "kakan")
         )
-        expected = 13 - kan_count
-        actual = len(state.hand)
+        base_hand = 13 - kan_count
+        actual = len(state.hand) + (1 if state.drawn_tile else 0)
+        # 有 drawn_tile 时总量应为 base_hand + 1
+        expected = base_hand + (1 if state.drawn_tile else 0)
         if actual != expected:
             warnings.append(f"hand_count_mismatch: got {actual}, expected {expected}")
 
@@ -380,7 +385,7 @@ class Validator:
         all_tiles.extend(state.dora_indicators)
 
         for tile in all_tiles:
-            key = _RED_DORA_MERGE.get(tile, tile)
+            key = normalize_tile_code(tile)
             tile_counter[key] = tile_counter.get(key, 0) + 1
         for tile, count in tile_counter.items():
             if count > 4:
@@ -435,7 +440,9 @@ class Validator:
                         hcx, hcy = hist_det.bbox.center
                         dist = ((cx - hcx) ** 2 + (cy - hcy) ** 2) ** 0.5
                         median_w = _median_value(dets, "width")
-                        if dist < median_w * 0.5:
+                        # 最小距离保护：即使 median_w 极小，也不应匹配到相邻牌面
+                        min_dist = max(median_w * 0.5, det.bbox.width * 0.3)
+                        if dist < min_dist:
                             votes.setdefault(hist_det.tile_code, []).append(hist_det.confidence)
 
                 if votes:

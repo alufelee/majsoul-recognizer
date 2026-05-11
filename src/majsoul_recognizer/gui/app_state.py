@@ -7,6 +7,7 @@ engine 可通过 App._rebuild_engine() 替换。
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 
 from majsoul_recognizer.recognition.config import RecognitionConfig
@@ -26,7 +27,8 @@ class AppState:
         theme_name: "dark" | "light"。
     """
 
-    engine: RecognitionEngine
+    engine: RecognitionEngine | None
     pipeline_factory: Callable[[], CapturePipeline]
     config: RecognitionConfig
     theme_name: str
+    zone_config_path: Path | None = None

@@ -35,8 +35,13 @@ def make_detection(x, y, w, h, tile_code="1m", confidence=0.95, zone_name=None):
 @pytest.fixture(scope="session")
 def dummy_detector_path(tmp_path_factory):
     """生成假 ONNX 检测模型（session 级别共享）"""
+    try:
+        import onnx
+    except ImportError:
+        pytest.skip("onnx package not available")
+        return  # unreachable, for type checkers
+
     import numpy as np
-    import onnx
     from onnx import helper, TensorProto, numpy_helper
 
     output = np.zeros((1, 44, 8400), dtype=np.float32)

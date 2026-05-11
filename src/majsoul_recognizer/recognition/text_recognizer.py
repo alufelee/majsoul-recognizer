@@ -29,22 +29,15 @@ _HONBA_KEYWORDS = ["本场", "本場"]
 # "供托" 关键字变体
 _KYOTAKU_KEYWORDS = ["供托", "供託"]
 
-# 分数范围
-_SCORE_MIN = -99999
-_SCORE_MAX = 200000
-
-
-def _parse_score_text(text: str) -> int | None:
+def _parse_score_text(text: str, score_min: int = -99999, score_max: int = 200000) -> int | None:
     """分数后处理"""
     text = text.strip()
     if not text:
         return None
 
     is_negative = text.startswith("-")
-    # 去除非数字字符（保留逗号和数字）
-    cleaned = text.replace(" ", "").replace(",", "")
     # 提取连续数字
-    digits = re.sub(r"[^0-9]", "", cleaned)
+    digits = re.sub(r"[^0-9]", "", text)
     if not digits:
         return None
 
@@ -52,7 +45,7 @@ def _parse_score_text(text: str) -> int | None:
     if is_negative:
         score = -score
 
-    if score < _SCORE_MIN or score > _SCORE_MAX:
+    if score < score_min or score > score_max:
         return None
     return score
 
@@ -128,8 +121,11 @@ def _parse_timer_text(text: str) -> int | None:
 class TextRecognizer:
     """文字识别器"""
 
-    def __init__(self, model_dir: Path | str | None = None):
+    def __init__(self, model_dir: Path | str | None = None,
+                 score_min: int = -99999, score_max: int = 200000):
         self._model_dir = model_dir
+        self._score_min = score_min
+        self._score_max = score_max
         # 延迟初始化：每种识别场景使用独立的 OCR 实例，配合对应的字典文件
         self._score_ocr = None
         self._round_ocr = None
@@ -185,7 +181,7 @@ class TextRecognizer:
         text = self._run_ocr(image, self._score_ocr)
         if text is None:
             return None
-        return _parse_score_text(text)
+        return _parse_score_text(text, self._score_min, self._score_max)
 
     def recognize_round(self, image: np.ndarray) -> RoundInfo | None:
         """识别局次信息"""

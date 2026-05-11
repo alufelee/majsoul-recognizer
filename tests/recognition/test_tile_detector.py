@@ -123,7 +123,8 @@ class TestCanvasHelpers:
 
     def test_assign_to_slot(self):
         from majsoul_recognizer.recognition.tile_detector import _CanvasSlot, _assign_to_slot
-        slot = _CanvasSlot(zone_name="hand", x_offset=0, y_offset=0, scale=1.0, orig_w=200, orig_h=100, slot_size=200)
+        # slot_size == orig_w == orig_h，无 padding
+        slot = _CanvasSlot(zone_name="hand", x_offset=0, y_offset=0, scale=1.0, orig_w=200, orig_h=200, slot_size=200)
         det = Detection(bbox=BBox(x=10, y=10, width=30, height=40), tile_code="1m", confidence=0.9)
         result = _assign_to_slot([det], [slot])
         assert "hand" in result

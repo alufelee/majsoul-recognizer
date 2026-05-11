@@ -1111,6 +1111,7 @@ dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "opencv-python-headless" },
+    { name = "pillow" },
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
@@ -1121,6 +1122,9 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+]
+gui = [
+    { name = "pillow" },
 ]
 macos = [
     { name = "pyobjc-framework-applicationservices" },
@@ -1150,6 +1154,8 @@ requires-dist = [
     { name = "opencv-python-headless", specifier = ">=4.8" },
     { name = "paddleocr", marker = "extra == 'recognition-ocr'", specifier = ">=2.7" },
     { name = "paddlepaddle", marker = "extra == 'recognition-ocr'", specifier = ">=2.5" },
+    { name = "pillow", specifier = ">=12.2.0" },
+    { name = "pillow", marker = "extra == 'gui'", specifier = ">=10.0" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pyobjc-framework-applicationservices", marker = "extra == 'macos'", specifier = ">=10.0" },
     { name = "pyobjc-framework-quartz", marker = "extra == 'macos'", specifier = ">=10.0" },
@@ -1160,7 +1166,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4" },
     { name = "ultralytics", marker = "extra == 'training'", specifier = ">=8.1" },
 ]
-provides-extras = ["macos", "windows", "recognition-ocr", "recognition-detector", "training", "dev"]
+provides-extras = ["macos", "windows", "recognition-ocr", "recognition-detector", "training", "gui", "dev"]
 
 [[package]]
 name = "markupsafe"

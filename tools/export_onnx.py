@@ -62,7 +62,8 @@ def export_to_onnx(
             import shutil
             shutil.move(str(alt), str(output_path))
 
-    assert output_path.exists(), f"ONNX export failed: {output_path} not found"
+    if not output_path.exists():
+        raise FileNotFoundError(f"ONNX export failed: {output_path} not found")
     logger.info("ONNX export complete: %s (%.1f MB)",
                 output_path, output_path.stat().st_size / 1024 / 1024)
     return output_path
