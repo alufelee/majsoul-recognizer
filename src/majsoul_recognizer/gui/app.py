@@ -34,12 +34,12 @@ class App:
     WINDOW_MIN_HEIGHT = 640
     DEFAULT_WIDTH = 1280
     DEFAULT_HEIGHT = 800
-    SIDEBAR_WIDTH = 64
+    SIDEBAR_WIDTH = 140
 
     NAV_ITEMS = [
-        ("截图", "screenshot"),
-        ("实时", "live"),
-        ("调试", "dev"),
+        ("\U0001f4f7 截图", "screenshot"),
+        ("\u26a1 实时", "live"),
+        ("\U0001f527 调试", "dev"),
     ]
 
     def __init__(self) -> None:
@@ -68,13 +68,13 @@ class App:
             engine = None  # type: ignore[assignment]
             self._status_label.config(text="检测器降级模式")
 
+        zone_path = Path(self._settings.config_path) if self._settings.config_path else None
         self._app_state = AppState(
             engine=engine,
-            pipeline_factory=lambda: CapturePipeline(
-                config_path=Path(self._settings.config_path) if self._settings.config_path else None,
-            ),
+            pipeline_factory=lambda: CapturePipeline(config_path=zone_path),
             config=config,
             theme_name=self._settings.theme,
+            zone_config_path=zone_path,
         )
 
         on_result = self._make_on_result()
@@ -89,6 +89,7 @@ class App:
         self._last_image: np.ndarray | None = None
         self._last_detections: list[Detection] = []
         self._active_view = None
+        self._active_view_name: str | None = None
 
         self._switch_view("screenshot")
 
@@ -100,12 +101,22 @@ class App:
             return tk.Tk()
 
     def _build_ui(self, theme: dict) -> None:
-        header = ttk.Frame(self._root)
+        # Header with accent bottom border
+        header_frame = ttk.Frame(self._root, style="Header.TFrame")
+        header_frame.pack(side="top", fill="x")
+
+        header = ttk.Frame(header_frame, style="Header.TFrame")
         header.pack(side="top", fill="x")
         ttk.Label(header, text="雀魂麻将识别助手 v0.1",
-                  font=("", 12, "bold")).pack(side="left", padx=8, pady=4)
-        ttk.Button(header, text="切换主题", command=self._toggle_theme).pack(side="right", padx=4)
-        ttk.Button(header, text="设置", command=self._show_settings).pack(side="right", padx=4)
+                  font=("", 12, "bold")).pack(side="left", padx=12, pady=6)
+        ttk.Button(header, text="切换主题", command=self._toggle_theme).pack(side="right", padx=4, pady=4)
+        ttk.Button(header, text="设置", command=self._show_settings).pack(side="right", padx=4, pady=4)
+
+        # Accent bottom border via Canvas
+        border_canvas = tk.Canvas(header_frame, height=2, bg=theme["accent"],
+                                  highlightthickness=0)
+        border_canvas.pack(side="bottom", fill="x")
+        self._header_border = border_canvas
 
         body = ttk.Frame(self._root)
         body.pack(side="top", fill="both", expand=True)
@@ -116,9 +127,9 @@ class App:
 
         self._nav_buttons: dict[str, ttk.Button] = {}
         for label, view_name in self.NAV_ITEMS:
-            btn = ttk.Button(sidebar, text=label, style="Sidebar.TButton",
+            btn = ttk.Button(sidebar, text=label, style="Nav.TButton",
                              command=lambda n=view_name: self._switch_view(n))
-            btn.pack(fill="x", padx=4, pady=8)
+            btn.pack(fill="x", padx=8, pady=(12, 4))
             self._nav_buttons[view_name] = btn
 
         # [S3] Content area uses grid for view switching
@@ -127,12 +138,20 @@ class App:
         self._content.grid_rowconfigure(0, weight=1)
         self._content.grid_columnconfigure(0, weight=1)
 
-        status_bar = ttk.Frame(self._root)
-        status_bar.pack(side="bottom", fill="x")
-        self._status_dot = tk.Canvas(status_bar, width=12, height=12,
-                                     bg=theme["bg_primary"], highlightthickness=0)
-        self._status_dot.pack(side="left", padx=4, pady=4)
-        self._status_dot.create_oval(2, 2, 10, 10, fill=theme["success"], outline="")
+        # Status bar with top border
+        status_outer = ttk.Frame(self._root)
+        status_outer.pack(side="bottom", fill="x")
+        status_border = tk.Canvas(status_outer, height=1, bg=theme["bg_surface0"],
+                                  highlightthickness=0)
+        status_border.pack(side="top", fill="x")
+        self._status_border = status_border
+
+        status_bar = ttk.Frame(status_outer)
+        status_bar.pack(side="top", fill="x", padx=8, pady=6)
+        self._status_dot = tk.Canvas(status_bar, width=16, height=16,
+                                     bg=theme["bg_base"], highlightthickness=0)
+        self._status_dot.pack(side="left", padx=(0, 4))
+        self._status_dot.create_oval(2, 2, 14, 14, fill=theme["green"], outline="")
         self._status_label = ttk.Label(status_bar, text="就绪", style="Status.TLabel")
         self._status_label.pack(side="left")
         self._status_info = ttk.Label(status_bar, text="", style="Status.TLabel")
@@ -146,6 +165,14 @@ class App:
         self._active_view = self._views[view_name]
         self._active_view.grid(row=0, column=0, sticky="nsew", in_=self._content)
         self._active_view.start()
+
+        # Update nav button active states
+        for name, btn in self._nav_buttons.items():
+            if name == view_name:
+                btn.configure(style="NavActive.TButton")
+            else:
+                btn.configure(style="Nav.TButton")
+        self._active_view_name = view_name
 
         # [C1] Push cached data to DevView
         if view_name == "dev" and self._last_frame is not None:
@@ -179,6 +206,22 @@ class App:
         style = ttk.Style()
         apply_style(style, new_theme)
 
+        # Update accent border and status border colors
+        self._header_border.configure(bg=new_theme["accent"])
+        self._status_border.configure(bg=new_theme["bg_surface0"])
+
+        # Update status dot
+        self._status_dot.configure(bg=new_theme["bg_base"])
+        self._status_dot.delete("all")
+        self._status_dot.create_oval(2, 2, 14, 14, fill=new_theme["green"], outline="")
+
+        # Re-apply active nav button styles
+        for name, btn in self._nav_buttons.items():
+            if name == self._active_view_name:
+                btn.configure(style="NavActive.TButton")
+            else:
+                btn.configure(style="Nav.TButton")
+
         for view in self._views.values():
             view.on_theme_changed(new_theme)
         self._settings.save()
@@ -189,6 +232,10 @@ class App:
     def _rebuild_engine(self) -> None:
         self._settings.save()
         config = self._settings.to_recognition_config()
+        # 同步 zone_config_path（设置可能更改了 config_path）
+        self._app_state.zone_config_path = (
+            Path(self._settings.config_path) if self._settings.config_path else None
+        )
         try:
             new_engine = RecognitionEngine(config)
             self._app_state.engine = new_engine
@@ -196,6 +243,8 @@ class App:
                 view.on_engine_changed(new_engine)
         except Exception as e:
             logger.error("Engine rebuild failed: %s", e)
+            self._app_state.engine = None
+            self._status_label.config(text=f"引擎重建失败: {e}")
 
     def run(self) -> None:
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -204,9 +253,12 @@ class App:
     def _on_close(self) -> None:
         for view in self._views.values():
             view.stop()
-        self._settings.window_width = self._root.winfo_width()
-        self._settings.window_height = self._root.winfo_height()
-        self._settings.window_x = self._root.winfo_x()
-        self._settings.window_y = self._root.winfo_y()
+        w = self._root.winfo_width()
+        h = self._root.winfo_height()
+        if w >= self.WINDOW_MIN_WIDTH and h >= self.WINDOW_MIN_HEIGHT:
+            self._settings.window_width = w
+            self._settings.window_height = h
+            self._settings.window_x = self._root.winfo_x()
+            self._settings.window_y = self._root.winfo_y()
         self._settings.save()
         self._root.destroy()

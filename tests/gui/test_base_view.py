@@ -75,7 +75,7 @@ class TestBaseViewLifecycle:
         view.stop()  # 不应抛异常
 
     def test_on_theme_changed_updates_theme(self, tk_root, mock_app_state):
-        new_theme = {"bg_primary": "#fff"}
+        new_theme = {"bg_base": "#fff"}
         view = BaseView(tk_root, mock_app_state, {})
         view.on_theme_changed(new_theme)
         assert view._theme == new_theme

@@ -47,7 +47,7 @@ class DevView(BaseView):
             wrap="none",
             state="disabled",
             font=(mono, 10),
-            bg=theme["bg_secondary"],
+            bg=theme["bg_mantle"],
             fg=theme["fg_primary"],
             height=8,
         )
@@ -98,14 +98,13 @@ class DevView(BaseView):
     def _compute_zone_rects(self, img_w: int, img_h: int) -> dict[str, tuple]:
         try:
             from majsoul_recognizer.zones.config import load_zone_config
-            from pathlib import Path
 
-            config_path = getattr(self._app_state.config, "config_path", None)
+            config_path = self._app_state.zone_config_path
             if config_path is None:
                 return {}
-            zone_config = load_zone_config(Path(config_path))
+            zone_config = load_zone_config(config_path)
             result = {}
-            for zd in zone_config.zones:
+            for zd in zone_config.zones.values():
                 bbox = zd.to_bbox(img_w, img_h)
                 result[zd.name.value] = (bbox.x, bbox.y, bbox.width, bbox.height)
             return result
@@ -122,4 +121,4 @@ class DevView(BaseView):
         super().on_theme_changed(theme)
         self._zone_canvas.on_theme_changed(theme)
         self._det_canvas.on_theme_changed(theme)
-        self._json_text.configure(bg=theme["bg_secondary"], fg=theme["fg_primary"])
+        self._json_text.configure(bg=theme["bg_mantle"], fg=theme["fg_primary"])

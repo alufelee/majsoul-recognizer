@@ -4,12 +4,12 @@
 """
 
 _TILE_CATEGORY_COLORS: dict[str, str] = {
-    "m": "#4caf50",    # 万子 - 绿
-    "p": "#2196f3",    # 筒子 - 蓝
-    "s": "#f44336",    # 索子 - 红
-    "z": "#9c27b0",    # 字牌 - 紫
-    "r": "#ff9800",    # 赤宝牌 - 橙
-    "x": "#9e9e9e",    # 特殊 - 灰
+    "m": "#b4befe",    # Manzu - lavender
+    "p": "#89dceb",    # Pinzu - sky
+    "s": "#f38ba8",    # Souzu - red
+    "z": "#f2cdcd",    # Honors - flamingo
+    "r": "#fab387",    # Red dora - peach
+    "x": "#6c7086",    # Special - fg_muted
 }
 
 
@@ -35,18 +35,14 @@ def _get_tile_category(tile_code: str) -> str:
 
 
 ZONE_COLORS: dict[str, str] = {
-    "hand": "#4caf50",
-    "dora": "#ff9800",
-    "round_info": "#2196f3",
-    "score_self": "#9c27b0",
-    "score_right": "#9c27b0",
-    "score_opposite": "#9c27b0",
-    "score_left": "#9c27b0",
-    "discards_self": "#00bcd4",
-    "discards_right": "#00bcd4",
-    "discards_opposite": "#00bcd4",
-    "discards_left": "#00bcd4",
-    "calls_self": "#e91e63",
-    "actions": "#ff5722",
-    "timer": "#607d8b",
+    "hand": "#a6e3a1",
+    "dora": "#fab387",
+    "round_info": "#89b4fa",
+    "score_self": "#cba6f7", "score_right": "#cba6f7",
+    "score_opposite": "#cba6f7", "score_left": "#cba6f7",
+    "discards_self": "#94e2d5", "discards_right": "#94e2d5",
+    "discards_opposite": "#94e2d5", "discards_left": "#94e2d5",
+    "calls_self": "#f9e2af",
+    "actions": "#fab387",
+    "timer": "#6c7086",
 }

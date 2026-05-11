@@ -21,7 +21,7 @@ class ImageCanvas(tk.Canvas):
     """图像显示画布"""
 
     def __init__(self, parent, theme: dict[str, str], **kwargs):
-        super().__init__(parent, bg=theme["canvas_bg"], **kwargs)
+        super().__init__(parent, bg=theme["bg_crust"], **kwargs)
         self._theme = theme
         self._photo: ImageTk.PhotoImage | None = None
         self._detections: list = []
@@ -37,6 +37,7 @@ class ImageCanvas(tk.Canvas):
 
     def show_image(self, image: np.ndarray) -> None:
         """显示 BGR 图像（自动缩放适应画布尺寸）"""
+        self._pending_image = None
         h, w = image.shape[:2]
         ch = max(self.winfo_height(), self.winfo_reqheight())
         cw = max(self.winfo_width(), self.winfo_reqwidth())
@@ -78,7 +79,7 @@ class ImageCanvas(tk.Canvas):
     def on_theme_changed(self, theme: dict[str, str]) -> None:
         """主题切换时更新背景色"""
         self._theme = theme
-        self.configure(bg=theme["canvas_bg"])
+        self.configure(bg=theme["bg_crust"])
 
     def clear(self) -> None:
         """清空画布"""
@@ -89,7 +90,9 @@ class ImageCanvas(tk.Canvas):
     def _on_configure(self, event) -> None:
         """窗口 resize 时重绘缓存的图像"""
         if self._pending_image is not None:
-            self.show_image(self._pending_image)
+            img = self._pending_image
+            self._pending_image = None
+            self.show_image(img)
 
     def _to_canvas_coords(self, x: int, y: int, w: int, h: int) -> tuple[int, int, int, int]:
         """原始图像坐标 → Canvas 坐标（考虑缩放和偏移）"""

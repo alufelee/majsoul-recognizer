@@ -17,13 +17,14 @@ class ResultPanel(ttk.Frame):
         self._theme = theme
         mono = "Menlo" if sys.platform == "darwin" else "Consolas"
         self._text = tk.Text(self, wrap="word", state="disabled",
-                             font=(mono, 11),
-                             bg=theme["bg_secondary"],
-                             fg=theme["fg_primary"])
+                             font=(mono, 11), width=36,
+                             bg=theme["bg_mantle"],
+                             fg=theme["fg_primary"],
+                             padx=12, pady=8)
         self._text.tag_configure("label", foreground=theme["fg_secondary"])
         self._text.tag_configure("value", foreground=theme["fg_primary"])
-        self._text.tag_configure("highlight", foreground=theme["highlight"])
-        self._text.tag_configure("warning", foreground=theme["warning"])
+        self._text.tag_configure("highlight", foreground=theme["peach"])
+        self._text.tag_configure("warning", foreground=theme["peach"])
         self._text.tag_configure("muted", foreground=theme["fg_muted"])
         self._text.pack(fill="both", expand=True)
 
@@ -38,16 +39,16 @@ class ResultPanel(ttk.Frame):
 
     def on_theme_changed(self, theme: dict[str, str]) -> None:
         self._theme = theme
-        self._text.configure(bg=theme["bg_secondary"], fg=theme["fg_primary"])
+        self._text.configure(bg=theme["bg_mantle"], fg=theme["fg_primary"])
         self._text.tag_configure("label", foreground=theme["fg_secondary"])
         self._text.tag_configure("value", foreground=theme["fg_primary"])
-        self._text.tag_configure("highlight", foreground=theme["highlight"])
-        self._text.tag_configure("warning", foreground=theme["warning"])
+        self._text.tag_configure("highlight", foreground=theme["peach"])
+        self._text.tag_configure("warning", foreground=theme["peach"])
         self._text.tag_configure("muted", foreground=theme["fg_muted"])
 
     def _render_state(self, state: GameState, latency_ms: float = 0) -> None:
         t = self._text
-        SEP = "─" * 30 + "\n"
+        SEP = "━" * 30 + "\n"
 
         if state.round_info:
             ri = state.round_info
