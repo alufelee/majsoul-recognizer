@@ -54,7 +54,8 @@ class SettingsDialog:
 
         btn_frame = ttk.Frame(main)
         btn_frame.grid(row=row, column=0, columnspan=2, pady=12)
-        ttk.Button(btn_frame, text="应用", command=self._on_apply_clicked).pack(side="left", padx=4)
+        ttk.Button(btn_frame, text="应用", style="Accent.TButton",
+                   command=self._on_apply_clicked).pack(side="left", padx=4)
         ttk.Button(btn_frame, text="关闭", command=self._on_close_clicked).pack(side="left", padx=4)
 
     def _add_section(self, parent, row, title) -> int:

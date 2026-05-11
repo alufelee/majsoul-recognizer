@@ -93,24 +93,6 @@ def apply_style(style: Any, theme: dict[str, str]) -> None:
               foreground=[("active", theme["fg_primary"]),
                           ("disabled", theme["fg_muted"])])
 
-    # Sidebar (Phase 2 will remove, Phase 1 keeps old style names but with new keys)
-    style.configure("Sidebar.TFrame", background=theme["bg_crust"])
-    style.configure("Nav.TButton", background=theme["bg_crust"],
-                     foreground=theme["fg_primary"], padding=(8, 6))
-    style.map("Nav.TButton",
-              background=[("active", theme["bg_surface0"])],
-              foreground=[("active", theme["fg_primary"])])
-    style.configure("NavActive.TButton", background=theme["accent_dim"],
-                     foreground="#ffffff", padding=(8, 6))
-    style.map("NavActive.TButton",
-              background=[("active", theme["accent"])],
-              foreground=[("active", "#ffffff")])
-
-    # Header / toolbar (Phase 4 will remove)
-    style.configure("Header.TFrame", background=theme["bg_mantle"])
-    style.configure("Toolbar.TFrame", background=theme["bg_base"],
-                     borderwidth=1, relief="raised")
-
     # Accent button
     style.configure("Accent.TButton", background=theme["accent"],
                      foreground="#ffffff", padding=(12, 4))
