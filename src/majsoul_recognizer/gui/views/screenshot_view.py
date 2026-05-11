@@ -31,25 +31,31 @@ class ScreenshotView(BaseView):
         self._on_result = on_result
         self._is_busy = False
 
-        # 布局: 左侧画布 + 右侧结果面板
+        # Grid layout: row 0 main content, row 1 status bar
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=0)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, minsize=240)
+
         self._canvas = ImageCanvas(self, theme)
-        self._canvas.pack(side="left", fill="both", expand=True)
+        self._canvas.grid(row=0, column=0, sticky="nsew")
 
         self._result_panel = ResultPanel(self, theme)
-        self._result_panel.pack(side="right", fill="y")
+        self._result_panel.grid(row=0, column=1, sticky="ns")
 
-        # 底部工具栏
-        toolbar = ttk.Frame(self)
-        toolbar.pack(side="bottom", fill="x")
+        # Status bar
+        outer, dot, self._status_label, self._status_info = self._create_status_bar()
+        outer.grid(row=1, column=0, columnspan=2, sticky="ew")
 
-        self._open_button = ttk.Button(toolbar, text="打开文件", command=self._on_open_file)
+        self._open_button = ttk.Button(self._status_bar_frame, text="打开文件",
+                                        style="SmallAccent.TButton",
+                                        command=self._on_open_file)
         self._open_button.pack(side="left", padx=4, pady=4)
 
-        self._recognize_button = ttk.Button(toolbar, text="识别", command=self._on_recognize)
+        self._recognize_button = ttk.Button(self._status_bar_frame, text="识别",
+                                             style="Small.TButton",
+                                             command=self._on_recognize)
         self._recognize_button.pack(side="left", padx=4, pady=4)
-
-        self._status_label = ttk.Label(toolbar, text="就绪")
-        self._status_label.pack(side="left", padx=8)
 
         if _HAS_DND:
             self._canvas.drop_target_register(DND_FILES)
@@ -57,6 +63,9 @@ class ScreenshotView(BaseView):
 
     def recognize(self, image: np.ndarray) -> None:
         """执行识别"""
+        if self._app_state.engine is None:
+            self._status_label.config(text="引擎未初始化，请检查模型配置")
+            return
         worker = self._ensure_worker()
         if not worker.submit(image):
             self._status_label.config(text="正在处理中，请稍候...")

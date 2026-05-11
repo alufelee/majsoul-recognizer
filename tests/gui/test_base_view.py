@@ -99,3 +99,27 @@ class TestBaseViewLifecycle:
         """基类 start() 默认为空操作（子类覆写）"""
         view = BaseView(tk_root, mock_app_state, {})
         view.start()  # 不应抛异常
+
+
+class TestBaseViewStatusBar:
+    def test_create_status_bar_returns_outer_frame(self, tk_root, mock_app_state):
+        from majsoul_recognizer.gui.theme import Theme
+        view = BaseView(tk_root, mock_app_state, Theme.DARK)
+        outer, dot, label, info = view._create_status_bar()
+        assert outer is not None
+        assert dot is not None
+        assert label is not None
+        assert info is not None
+        assert view._status_bar_frame is not None
+
+    def test_set_status_text_updates_label(self, tk_root, mock_app_state):
+        from majsoul_recognizer.gui.theme import Theme
+        view = BaseView(tk_root, mock_app_state, Theme.DARK)
+        view._create_status_bar()
+        view.set_status_text("test message")
+        assert view._status_label.cget("text") == "test message"
+
+    def test_set_status_text_without_bar_is_safe(self, tk_root, mock_app_state):
+        from majsoul_recognizer.gui.theme import Theme
+        view = BaseView(tk_root, mock_app_state, Theme.DARK)
+        view.set_status_text("safe")

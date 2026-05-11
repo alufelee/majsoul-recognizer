@@ -41,29 +41,35 @@ class LiveView(BaseView):
         self._on_result = on_result
         self._state: str = "idle"
 
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=0)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, minsize=240)
+
         self._canvas = ImageCanvas(self, theme)
-        self._canvas.pack(side="top", fill="both", expand=True)
+        self._canvas.grid(row=0, column=0, sticky="nsew")
 
         self._result_panel = ResultPanel(self, theme)
-        self._result_panel.pack(side="top", fill="x")
+        self._result_panel.grid(row=0, column=1, sticky="ns")
 
-        toolbar = ttk.Frame(self)
-        toolbar.pack(side="bottom", fill="x")
+        # Status bar
+        outer, dot, self._status_label, self._status_info = self._create_status_bar()
+        outer.grid(row=1, column=0, columnspan=2, sticky="ew")
 
-        self._start_button = ttk.Button(toolbar, text="开始", command=self._on_start)
+        self._start_button = ttk.Button(self._status_bar_frame, text="开始",
+                                         style="SmallAccent.TButton",
+                                         command=self._on_start)
         self._start_button.pack(side="left", padx=4, pady=4)
 
-        self._pause_button = ttk.Button(toolbar, text="暂停", command=self._on_pause)
+        self._pause_button = ttk.Button(self._status_bar_frame, text="暂停",
+                                         style="Small.TButton",
+                                         command=self._on_pause)
         self._pause_button.pack(side="left", padx=4, pady=4)
 
-        self._reset_button = ttk.Button(toolbar, text="重置", command=self._on_reset)
+        self._reset_button = ttk.Button(self._status_bar_frame, text="重置",
+                                         style="Small.TButton",
+                                         command=self._on_reset)
         self._reset_button.pack(side="left", padx=4, pady=4)
-
-        self._fps_label = ttk.Label(toolbar, text="FPS: --")
-        self._fps_label.pack(side="right", padx=8)
-
-        self._status_label = ttk.Label(toolbar, text="就绪")
-        self._status_label.pack(side="right", padx=8)
 
         self._update_buttons("idle")
 
@@ -76,6 +82,8 @@ class LiveView(BaseView):
         self._state = state
 
     def _on_start(self) -> None:
+        if self._capture_thread and self._capture_thread.is_alive():
+            return
         self._capture_stop.clear()
         self._capture_thread = threading.Thread(target=self._capture_loop, daemon=True)
         self._capture_thread.start()
@@ -96,7 +104,7 @@ class LiveView(BaseView):
         self._canvas.clear()
         self._result_panel.update_state(None)
         self._current_state = None
-        self._fps_label.config(text="FPS: --")
+        self._status_info.config(text="")
         self._status_label.config(text="就绪")
         self._update_buttons("idle")
 
@@ -133,8 +141,8 @@ class LiveView(BaseView):
 
                     consecutive_fails = 0
                     worker = self._ensure_worker()
-                    worker.submit(image)
-                    self._fps_counter.tick()
+                    if worker.submit(image):
+                        self._fps_counter.tick()
 
                     elapsed = time.perf_counter() - t0
                     remaining = max(0, self.CAPTURE_INTERVAL - elapsed)
@@ -179,7 +187,7 @@ class LiveView(BaseView):
                     )
                 self._status_label.config(text="捕获中")
         fps = self._fps_counter.fps
-        self._fps_label.config(text=f"FPS: {fps:.1f}")
+        self._status_info.config(text=f"FPS: {fps:.1f}")
 
         self.after(50, self._poll_result)
 

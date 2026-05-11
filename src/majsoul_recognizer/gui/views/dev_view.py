@@ -27,44 +27,42 @@ class DevView(BaseView):
         super().__init__(parent, app_state, theme, **kwargs)
         self._current_image: np.ndarray | None = None
 
-        # 上半部分: 两个画布并排
-        canvas_frame = ttk.Frame(self)
-        canvas_frame.pack(side="top", fill="both", expand=True)
+        # 3-column grid
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=0)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure(2, minsize=280)
 
-        self._zone_canvas = ImageCanvas(canvas_frame, theme)
-        self._zone_canvas.pack(side="left", fill="both", expand=True)
+        self._zone_canvas = ImageCanvas(self, theme)
+        self._zone_canvas.grid(row=0, column=0, sticky="nsew")
 
-        self._det_canvas = ImageCanvas(canvas_frame, theme)
-        self._det_canvas.pack(side="left", fill="both", expand=True)
+        self._det_canvas = ImageCanvas(self, theme)
+        self._det_canvas.grid(row=0, column=1, sticky="nsew")
 
-        # JSON 输出
-        json_frame = ttk.Frame(self)
-        json_frame.pack(side="top", fill="both", expand=True)
+        # JSON panel
+        json_panel = ttk.Frame(self)
+        json_panel.grid(row=0, column=2, sticky="ns")
+
+        ttk.Label(json_panel, text="JSON 输出", style="PanelHeader.TLabel").pack(
+            anchor="w", padx=8, pady=(8, 4))
 
         mono = "Menlo" if sys.platform == "darwin" else "Consolas"
-        self._json_text = tk.Text(
-            json_frame,
-            wrap="none",
-            state="disabled",
-            font=(mono, 10),
-            bg=theme["bg_mantle"],
-            fg=theme["fg_primary"],
-            height=8,
-        )
-        json_scroll = ttk.Scrollbar(json_frame, orient="vertical", command=self._json_text.yview)
+        self._json_text = tk.Text(json_panel, wrap="none", state="disabled",
+                                  font=(mono, 10), bg=theme["bg_crust"],
+                                  fg=theme["fg_primary"], height=8)
+        json_scroll = ttk.Scrollbar(json_panel, orient="vertical",
+                                    command=self._json_text.yview)
         self._json_text.configure(yscrollcommand=json_scroll.set)
-        self._json_text.pack(side="left", fill="both", expand=True)
+        self._json_text.pack(side="left", fill="both", expand=True, padx=(8, 0))
         json_scroll.pack(side="right", fill="y")
 
-        # 底部: 性能 + 复制按钮
-        bottom = ttk.Frame(self)
-        bottom.pack(side="bottom", fill="x")
+        ttk.Button(json_panel, text="复制 JSON", style="Small.TButton",
+                   command=self._copy_json).pack(pady=4)
 
-        self._perf_label = ttk.Label(bottom, text="性能: --")
-        self._perf_label.pack(side="left", padx=4, pady=4)
-
-        self._copy_button = ttk.Button(bottom, text="复制 JSON", command=self._copy_json)
-        self._copy_button.pack(side="right", padx=4, pady=4)
+        # Status bar
+        outer, dot, self._status_label, self._status_info = self._create_status_bar()
+        outer.grid(row=1, column=0, columnspan=3, sticky="ew")
 
     def set_current_image(self, image: np.ndarray) -> None:
         self._current_image = image
@@ -91,7 +89,7 @@ class DevView(BaseView):
         self._json_text.insert("1.0", json.dumps(output, indent=2, ensure_ascii=False))
         self._json_text.config(state="disabled")
 
-        self._perf_label.config(
+        self._status_info.config(
             text=f"帧: {frame.frame_id} | {'静态' if frame.is_static else '动画'}"
         )
 
@@ -121,4 +119,4 @@ class DevView(BaseView):
         super().on_theme_changed(theme)
         self._zone_canvas.on_theme_changed(theme)
         self._det_canvas.on_theme_changed(theme)
-        self._json_text.configure(bg=theme["bg_mantle"], fg=theme["fg_primary"])
+        self._json_text.configure(bg=theme["bg_crust"], fg=theme["fg_primary"])

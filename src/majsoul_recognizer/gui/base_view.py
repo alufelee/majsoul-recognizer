@@ -6,6 +6,7 @@ App 通过 BaseView 的 start/stop/on_theme_changed/on_engine_changed
 
 from __future__ import annotations
 
+import tkinter as tk
 import tkinter.ttk as ttk
 
 from majsoul_recognizer.gui.worker import _RecognizeWorker
@@ -55,3 +56,40 @@ class BaseView(ttk.Frame):
         """引擎重建通知（设置变更后由 App 调用）"""
         if self._worker is not None:
             self._worker.update_engine(engine)
+
+    def _create_status_bar(self) -> tuple[ttk.Frame, tk.Canvas, ttk.Label, ttk.Label]:
+        """Create a uniform status bar component.
+
+        Returns: (outer_frame, status_dot, status_label, status_info)
+                 Place outer_frame in grid (row=1).
+                 Add buttons to self._status_bar_frame.
+        """
+        outer = ttk.Frame(self)
+
+        sep = tk.Canvas(outer, height=1, bg=self._theme["bg_surface0"],
+                        highlightthickness=0)
+        sep.pack(side="top", fill="x")
+
+        bar = ttk.Frame(outer, style="StatusBar.TFrame", height=32)
+        bar.pack(side="top", fill="x")
+        bar.pack_propagate(False)
+
+        dot = tk.Canvas(bar, width=16, height=16,
+                        bg=self._theme["bg_crust"], highlightthickness=0)
+        dot.pack(side="left", padx=(8, 4), pady=8)
+        dot.create_oval(3, 3, 13, 13, fill=self._theme["green"], outline="")
+
+        status_label = ttk.Label(bar, text="就绪", style="Status.TLabel")
+        status_label.pack(side="left")
+
+        info_label = ttk.Label(bar, text="", style="Status.TLabel")
+        info_label.pack(side="right", padx=8)
+
+        self._status_label = status_label
+        self._status_bar_frame = bar
+        return outer, dot, status_label, info_label
+
+    def set_status_text(self, text: str) -> None:
+        """App-level status message delegation"""
+        if hasattr(self, '_status_label') and self._status_label is not None:
+            self._status_label.config(text=text)

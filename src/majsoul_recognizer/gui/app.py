@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from pathlib import Path
 from typing import Callable
 
@@ -27,6 +28,87 @@ from majsoul_recognizer.types import Detection, FrameResult, GameState
 logger = logging.getLogger(__name__)
 
 
+class _SidebarIcon(tk.Canvas):
+    """Sidebar icon button"""
+
+    def __init__(self, parent, theme: dict, icon_type: str,
+                 command, **kwargs):
+        super().__init__(parent, width=36, height=36,
+                         bg=theme["bg_crust"],
+                         highlightthickness=0, **kwargs)
+        self._theme = theme
+        self._command = command
+        self._active = False
+        self._icon_type = icon_type
+
+        self._draw_icon(theme["fg_secondary"])
+        self.bind("<Button-1>", lambda e: self._command())
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+
+    def set_active(self, active: bool) -> None:
+        self._active = active
+        self.delete("active_bar")
+        if active:
+            self.create_rectangle(0, 0, 2, 36, fill=self._theme["accent"],
+                                  outline="", tags="active_bar")
+            self.configure(bg=self._theme["accent_dim"])
+            self._redraw(self._theme["fg_primary"])
+        else:
+            self.configure(bg=self._theme["bg_crust"])
+            self._redraw(self._theme["fg_secondary"])
+
+    def on_theme_changed(self, theme: dict) -> None:
+        self._theme = theme
+        color = theme["fg_primary"] if self._active else theme["fg_secondary"]
+        bg = theme["accent_dim"] if self._active else theme["bg_crust"]
+        self.configure(bg=bg)
+        self._redraw(color)
+        if self._active:
+            self.delete("active_bar")
+            self.create_rectangle(0, 0, 2, 36, fill=theme["accent"],
+                                  outline="", tags="active_bar")
+
+    def _on_enter(self, event):
+        if not self._active:
+            self.configure(bg=self._theme["bg_surface0"])
+
+    def _on_leave(self, event):
+        if not self._active:
+            self.configure(bg=self._theme["bg_crust"])
+
+    def _redraw(self, color: str) -> None:
+        self.delete("icon")
+        self._draw_icon(color)
+
+    def _draw_icon(self, color: str) -> None:
+        if self._icon_type == "screenshot":
+            self.create_rectangle(10, 11, 26, 25, outline=color,
+                                  width=1.5, tags="icon")
+            self.create_line(10, 11, 10, 15, 14, 15, 14, 11,
+                             fill=color, width=1.5, tags="icon")
+        elif self._icon_type == "live":
+            self.create_oval(15, 15, 21, 21, outline=color,
+                             width=1.5, tags="icon")
+            self.create_arc(12, 12, 24, 24, start=30, extent=60,
+                            outline=color, style="arc", width=1.5, tags="icon")
+            self.create_arc(9, 9, 27, 27, start=30, extent=60,
+                            outline=color, style="arc", width=1.5, tags="icon")
+        elif self._icon_type == "dev":
+            self.create_oval(10, 10, 26, 26, outline=color,
+                             width=1.5, tags="icon")
+            self.create_oval(15, 15, 21, 21, outline=color,
+                             width=1.5, tags="icon")
+            for i in range(6):
+                angle = math.radians(i * 60)
+                x1 = 18 + 8 * math.cos(angle)
+                y1 = 18 + 8 * math.sin(angle)
+                x2 = 18 + 10 * math.cos(angle)
+                y2 = 18 + 10 * math.sin(angle)
+                self.create_line(x1, y1, x2, y2, fill=color,
+                                 width=1.5, tags="icon")
+
+
 class App:
     """主窗口"""
 
@@ -34,13 +116,9 @@ class App:
     WINDOW_MIN_HEIGHT = 640
     DEFAULT_WIDTH = 1280
     DEFAULT_HEIGHT = 800
-    SIDEBAR_WIDTH = 140
+    SIDEBAR_WIDTH = 48
 
-    NAV_ITEMS = [
-        ("\U0001f4f7 截图", "screenshot"),
-        ("\u26a1 实时", "live"),
-        ("\U0001f527 调试", "dev"),
-    ]
+    NAV_ITEMS = ["screenshot", "live", "dev"]
 
     def __init__(self) -> None:
         self._settings = GUISettings.load()
@@ -61,12 +139,13 @@ class App:
 
         # [S2] Engine init — degraded mode on failure
         config = self._settings.to_recognition_config()
+        self._init_error: str | None = None
         try:
             engine = RecognitionEngine(config)
         except Exception as e:
             logger.warning("Engine init failed (degraded mode): %s", e)
-            engine = None  # type: ignore[assignment]
-            self._status_label.config(text="检测器降级模式")
+            engine = None
+            self._init_error = "检测器降级模式"
 
         zone_path = Path(self._settings.config_path) if self._settings.config_path else None
         self._app_state = AppState(
@@ -101,18 +180,20 @@ class App:
             return tk.Tk()
 
     def _build_ui(self, theme: dict) -> None:
-        # Header with accent bottom border
-        header_frame = ttk.Frame(self._root, style="Header.TFrame")
+        # Header (NOT using Header.TFrame — Phase 4 will delete that style)
+        header_frame = tk.Frame(self._root, bg=theme["bg_mantle"])
         header_frame.pack(side="top", fill="x")
 
-        header = ttk.Frame(header_frame, style="Header.TFrame")
+        header = tk.Frame(header_frame, bg=theme["bg_mantle"])
         header.pack(side="top", fill="x")
-        ttk.Label(header, text="雀魂麻将识别助手 v0.1",
-                  font=("", 12, "bold")).pack(side="left", padx=12, pady=6)
-        ttk.Button(header, text="切换主题", command=self._toggle_theme).pack(side="right", padx=4, pady=4)
-        ttk.Button(header, text="设置", command=self._show_settings).pack(side="right", padx=4, pady=4)
+        tk.Label(header, text="雀魂麻将识别助手 v0.1", bg=theme["bg_mantle"],
+                 fg=theme["fg_primary"],
+                 font=("", 12, "bold")).pack(side="left", padx=12, pady=6)
+        ttk.Button(header, text="切换主题",
+                   command=self._toggle_theme).pack(side="right", padx=4, pady=4)
+        ttk.Button(header, text="设置",
+                   command=self._show_settings).pack(side="right", padx=4, pady=4)
 
-        # Accent bottom border via Canvas
         border_canvas = tk.Canvas(header_frame, height=2, bg=theme["accent"],
                                   highlightthickness=0)
         border_canvas.pack(side="bottom", fill="x")
@@ -121,41 +202,25 @@ class App:
         body = ttk.Frame(self._root)
         body.pack(side="top", fill="both", expand=True)
 
-        sidebar = ttk.Frame(body, width=self.SIDEBAR_WIDTH, style="Sidebar.TFrame")
-        sidebar.pack(side="left", fill="y")
-        sidebar.pack_propagate(False)
+        # Canvas icon sidebar
+        sidebar = tk.Canvas(body, width=self.SIDEBAR_WIDTH, bg=theme["bg_crust"],
+                            highlightthickness=0)
+        sidebar.pack(side="left", fill="y", expand=True)
 
-        self._nav_buttons: dict[str, ttk.Button] = {}
-        for label, view_name in self.NAV_ITEMS:
-            btn = ttk.Button(sidebar, text=label, style="Nav.TButton",
-                             command=lambda n=view_name: self._switch_view(n))
-            btn.pack(fill="x", padx=8, pady=(12, 4))
-            self._nav_buttons[view_name] = btn
+        self._nav_icons: dict[str, _SidebarIcon] = {}
+        y_offset = 12
+        for view_name in self.NAV_ITEMS:
+            icon = _SidebarIcon(sidebar, theme, view_name,
+                                command=lambda n=view_name: self._switch_view(n))
+            sidebar.create_window(24, y_offset + 18, window=icon)
+            y_offset += 40
+            self._nav_icons[view_name] = icon
 
-        # [S3] Content area uses grid for view switching
+        # Content area
         self._content = ttk.Frame(body)
         self._content.pack(side="left", fill="both", expand=True)
         self._content.grid_rowconfigure(0, weight=1)
         self._content.grid_columnconfigure(0, weight=1)
-
-        # Status bar with top border
-        status_outer = ttk.Frame(self._root)
-        status_outer.pack(side="bottom", fill="x")
-        status_border = tk.Canvas(status_outer, height=1, bg=theme["bg_surface0"],
-                                  highlightthickness=0)
-        status_border.pack(side="top", fill="x")
-        self._status_border = status_border
-
-        status_bar = ttk.Frame(status_outer)
-        status_bar.pack(side="top", fill="x", padx=8, pady=6)
-        self._status_dot = tk.Canvas(status_bar, width=16, height=16,
-                                     bg=theme["bg_base"], highlightthickness=0)
-        self._status_dot.pack(side="left", padx=(0, 4))
-        self._status_dot.create_oval(2, 2, 14, 14, fill=theme["green"], outline="")
-        self._status_label = ttk.Label(status_bar, text="就绪", style="Status.TLabel")
-        self._status_label.pack(side="left")
-        self._status_info = ttk.Label(status_bar, text="", style="Status.TLabel")
-        self._status_info.pack(side="right", padx=8)
 
     def _switch_view(self, view_name: str) -> None:
         if self._active_view:
@@ -166,13 +231,14 @@ class App:
         self._active_view.grid(row=0, column=0, sticky="nsew", in_=self._content)
         self._active_view.start()
 
-        # Update nav button active states
-        for name, btn in self._nav_buttons.items():
-            if name == view_name:
-                btn.configure(style="NavActive.TButton")
-            else:
-                btn.configure(style="Nav.TButton")
+        # Update nav icon active states
+        for name, icon in self._nav_icons.items():
+            icon.set_active(name == view_name)
         self._active_view_name = view_name
+
+        if self._init_error:
+            self._active_view.set_status_text(self._init_error)
+            self._init_error = None
 
         # [C1] Push cached data to DevView
         if view_name == "dev" and self._last_frame is not None:
@@ -206,21 +272,10 @@ class App:
         style = ttk.Style()
         apply_style(style, new_theme)
 
-        # Update accent border and status border colors
         self._header_border.configure(bg=new_theme["accent"])
-        self._status_border.configure(bg=new_theme["bg_surface0"])
 
-        # Update status dot
-        self._status_dot.configure(bg=new_theme["bg_base"])
-        self._status_dot.delete("all")
-        self._status_dot.create_oval(2, 2, 14, 14, fill=new_theme["green"], outline="")
-
-        # Re-apply active nav button styles
-        for name, btn in self._nav_buttons.items():
-            if name == self._active_view_name:
-                btn.configure(style="NavActive.TButton")
-            else:
-                btn.configure(style="Nav.TButton")
+        for icon in self._nav_icons.values():
+            icon.on_theme_changed(new_theme)
 
         for view in self._views.values():
             view.on_theme_changed(new_theme)
@@ -244,7 +299,8 @@ class App:
         except Exception as e:
             logger.error("Engine rebuild failed: %s", e)
             self._app_state.engine = None
-            self._status_label.config(text=f"引擎重建失败: {e}")
+            if self._active_view is not None:
+                self._active_view.set_status_text(f"引擎重建失败: {e}")
 
     def run(self) -> None:
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
