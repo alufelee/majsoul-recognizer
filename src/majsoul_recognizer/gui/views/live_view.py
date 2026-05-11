@@ -73,6 +73,8 @@ class LiveView(BaseView):
 
         self._update_buttons("idle")
 
+        self._canvas.show_empty_state("点击「开始」捕获窗口")
+
     def _update_buttons(self, state: str) -> None:
         self._start_button.config(state="normal" if state in ("idle", "paused") else "disabled")
         self._pause_button.config(state="normal" if state == "capturing" else "disabled")

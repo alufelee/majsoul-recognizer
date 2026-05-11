@@ -61,6 +61,8 @@ class ScreenshotView(BaseView):
             self._canvas.drop_target_register(DND_FILES)
             self._canvas.dnd_bind("<<Drop>>", self._on_drop)
 
+        self._canvas.show_empty_state("拖放或点击加载截图")
+
     def recognize(self, image: np.ndarray) -> None:
         """执行识别"""
         if self._app_state.engine is None:

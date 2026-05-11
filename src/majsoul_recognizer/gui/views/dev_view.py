@@ -64,6 +64,9 @@ class DevView(BaseView):
         outer, dot, self._status_label, self._status_info = self._create_status_bar()
         outer.grid(row=1, column=0, columnspan=3, sticky="ew")
 
+        self._zone_canvas.show_empty_state("在其他视图识别后切换查看")
+        self._det_canvas.show_empty_state("在其他视图识别后切换查看")
+
     def set_current_image(self, image: np.ndarray) -> None:
         self._current_image = image
 
