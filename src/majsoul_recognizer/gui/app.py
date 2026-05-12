@@ -29,23 +29,23 @@ logger = logging.getLogger(__name__)
 
 
 class _SidebarIcon(tk.Canvas):
-    """Sidebar icon button — HUD style, 44x44 for clear visibility"""
+    """Sidebar icon button — glass style, 44x44"""
 
     _SIZE = 44
 
     def __init__(self, parent, theme: dict, icon_type: str,
                  command, **kwargs):
         super().__init__(parent, width=self._SIZE, height=self._SIZE,
-                         bg=theme["bg_crust"],
+                         bg=theme["bg_base"],
                          highlightthickness=0, **kwargs)
         self._theme = theme
         self._command = command
         self._active = False
         self._icon_type = icon_type
-        self._cx = self._SIZE // 2  # center x
-        self._cy = self._SIZE // 2  # center y
+        self._cx = self._SIZE // 2
+        self._cy = self._SIZE // 2
 
-        self._draw_icon(theme["fg_secondary"])
+        self._draw_icon(theme["fg_muted"])
         self.bind("<Button-1>", lambda e: self._command())
         self.bind("<Enter>", self._on_enter)
         self.bind("<Leave>", self._on_leave)
@@ -54,27 +54,18 @@ class _SidebarIcon(tk.Canvas):
         self._active = active
         self.delete("active_bar")
         if active:
-            # Accent bar on left edge — full height
-            self.create_rectangle(0, 0, 3, self._SIZE,
-                                  fill=self._theme["accent"],
-                                  outline="", tags="active_bar")
-            self.configure(bg=self._theme["accent_dim"])
+            self.configure(bg=theme_accent_dim(self._theme))
             self._redraw(self._theme["accent"])
         else:
-            self.configure(bg=self._theme["bg_crust"])
+            self.configure(bg=self._theme["bg_base"])
             self._redraw(self._theme["fg_muted"])
 
     def on_theme_changed(self, theme: dict) -> None:
         self._theme = theme
         color = theme["accent"] if self._active else theme["fg_muted"]
-        bg = theme["accent_dim"] if self._active else theme["bg_crust"]
+        bg = theme_accent_dim(theme) if self._active else theme["bg_base"]
         self.configure(bg=bg)
         self._redraw(color)
-        if self._active:
-            self.delete("active_bar")
-            self.create_rectangle(0, 0, 3, self._SIZE,
-                                  fill=theme["accent"],
-                                  outline="", tags="active_bar")
 
     def _on_enter(self, event):
         if not self._active:
@@ -83,7 +74,7 @@ class _SidebarIcon(tk.Canvas):
 
     def _on_leave(self, event):
         if not self._active:
-            self.configure(bg=self._theme["bg_crust"])
+            self.configure(bg=self._theme["bg_base"])
             self._redraw(self._theme["fg_muted"])
 
     def _redraw(self, color: str) -> None:
@@ -92,40 +83,44 @@ class _SidebarIcon(tk.Canvas):
 
     def _draw_icon(self, color: str) -> None:
         cx, cy = self._cx, self._cy
-        w = 2  # line width
+        w = 1.5  # lighter stroke for glass style
         if self._icon_type == "screenshot":
-            # Screenshot frame with crosshair
-            s = 10  # half size
+            # Screenshot frame with corner marks
+            s = 10
             self.create_rectangle(cx - s, cy - s, cx + s, cy + s,
                                   outline=color, width=w, tags="icon")
-            # Crosshair lines inside
-            self.create_line(cx, cy - 5, cx, cy + 5, fill=color,
-                             width=1, tags="icon")
-            self.create_line(cx - 5, cy, cx + 5, cy, fill=color,
-                             width=1, tags="icon")
+            # Small corner accents
+            cl = 4
+            for dx, dy in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
+                x = cx + dx * s
+                y = cy + dy * s
+                self.create_line(x, y, x - dx * cl, y, fill=color, width=2, tags="icon")
+                self.create_line(x, y, x, y - dy * cl, fill=color, width=2, tags="icon")
         elif self._icon_type == "live":
-            # Signal broadcast — pulsing dot + arcs
+            # Play circle — simple round indicator
+            self.create_oval(cx - 8, cy - 8, cx + 8, cy + 8,
+                             outline=color, width=w, tags="icon")
+            # Inner dot
             self.create_oval(cx - 3, cy - 3, cx + 3, cy + 3,
                              fill=color, outline="", tags="icon")
-            self.create_arc(cx - 8, cy - 8, cx + 8, cy + 8,
-                            start=45, extent=90,
-                            outline=color, style="arc", width=w, tags="icon")
-            self.create_arc(cx - 13, cy - 13, cx + 13, cy + 13,
-                            start=45, extent=90,
-                            outline=color, style="arc", width=w, tags="icon")
         elif self._icon_type == "dev":
-            # Terminal window with prompt
+            # Terminal window
             s = 10
             self.create_rectangle(cx - s, cy - s + 2, cx + s, cy + s - 2,
                                   outline=color, width=w, tags="icon")
-            # Window title bar line
-            self.create_line(cx - s, cy - s + 6, cx + s, cy - s + 6,
-                             fill=color, width=1, tags="icon")
-            # Prompt lines
-            self.create_line(cx - 7, cy, cx - 3, cy,
-                             fill=color, width=w, tags="icon")
-            self.create_line(cx - 7, cy + 4, cx + 4, cy + 4,
-                             fill=color, width=1, tags="icon")
+            # Title bar dots
+            for i, dx in enumerate([-6, -2, 2]):
+                self.create_oval(cx + dx - 1.5, cy - s + 4.5,
+                                 cx + dx + 1.5, cy - s + 7.5,
+                                 fill=color, outline="", tags="icon")
+            # Prompt line
+            self.create_line(cx - 6, cy + 3, cx + 5, cy + 3,
+                             fill=color, width=1.5, tags="icon")
+
+
+def theme_accent_dim(theme: dict) -> str:
+    """返回当前主题的 accent_dim，兼容缺少该 key 的主题"""
+    return theme.get("accent_dim", theme["bg_surface0"])
 
 
 class App:
@@ -202,60 +197,58 @@ class App:
         import sys
         mono = "Menlo" if sys.platform == "darwin" else "Consolas"
 
-        # Header bar — HUD style
+        # Header bar — glass panel style
         header_frame = tk.Frame(self._root, bg=theme["bg_mantle"])
         header_frame.pack(side="top", fill="x")
 
         header = tk.Frame(header_frame, bg=theme["bg_mantle"])
         header.pack(side="top", fill="x")
 
-        # Title with accent color — monospace bold
-        tk.Label(header, text="▸ 雀魂麻将识别助手", bg=theme["bg_mantle"],
+        # Title — clean accent color
+        tk.Label(header, text="雀魂麻将识别助手", bg=theme["bg_mantle"],
                  fg=theme["accent"],
-                 font=(mono, 13, "bold")).pack(side="left", padx=12, pady=6)
-        # Version tag
+                 font=(mono, 13, "bold")).pack(side="left", padx=16, pady=8)
+        # Version badge — surface0 bg
         tk.Label(header, text="v0.1", bg=theme["bg_surface0"],
-                 fg=theme["accent"],
-                 font=(mono, 9), padx=4, pady=1).pack(side="left", padx=(0, 8), pady=6)
+                 fg=theme["fg_secondary"],
+                 font=(mono, 9), padx=6, pady=2).pack(side="left", padx=(0, 12), pady=8)
 
-        # Right side: HUD status tag
+        # Status indicator
         tk.Label(header, text="● 就绪", bg=theme["bg_mantle"],
                  fg=theme["green"],
-                 font=(mono, 9)).pack(side="right", padx=(8, 4), pady=6)
+                 font=(mono, 9)).pack(side="right", padx=(8, 12), pady=8)
         self._header_status = header.winfo_children()[-1]
 
         ttk.Button(header, text="切换主题",
-                   command=self._toggle_theme).pack(side="right", padx=4, pady=4)
+                   command=self._toggle_theme).pack(side="right", padx=4, pady=6)
         ttk.Button(header, text="设置",
-                   command=self._show_settings).pack(side="right", padx=4, pady=4)
+                   command=self._show_settings).pack(side="right", padx=4, pady=6)
 
-        # Accent line separator with HUD tick marks
-        border_canvas = tk.Canvas(header_frame, height=3, bg=theme["bg_mantle"],
-                                  highlightthickness=0)
-        border_canvas.pack(side="bottom", fill="x")
-        self._header_border = border_canvas
-        self._header_border.bind("<Configure>",
-                                 lambda e: self._draw_hud_border(theme))
+        # Subtle separator — glass border
+        sep = tk.Canvas(header_frame, height=1, bg=theme["glass_border"],
+                        highlightthickness=0)
+        sep.pack(side="bottom", fill="x")
+        self._header_sep = sep
 
         body = ttk.Frame(self._root)
         body.pack(side="top", fill="both", expand=True)
 
-        # Sidebar — HUD style with accent line separator
-        sidebar_outer = tk.Frame(body, bg=theme["bg_crust"])
+        # Sidebar — glass panel with right border
+        sidebar_outer = tk.Frame(body, bg=theme["bg_base"])
         sidebar_outer.pack(side="left", fill="y")
 
         sidebar = tk.Canvas(sidebar_outer, width=self.SIDEBAR_WIDTH,
-                            bg=theme["bg_crust"], highlightthickness=0)
+                            bg=theme["bg_base"], highlightthickness=0)
         sidebar.pack(side="left", fill="y", expand=True)
 
-        # Right edge accent line
-        sidebar_line = tk.Canvas(sidebar_outer, width=1, bg=theme["accent"],
-                                 highlightthickness=0)
-        sidebar_line.pack(side="right", fill="y")
-        self._sidebar_line = sidebar_line
+        # Glass border separator
+        sidebar_sep = tk.Canvas(sidebar_outer, width=1, bg=theme["glass_border"],
+                                highlightthickness=0)
+        sidebar_sep.pack(side="right", fill="y")
+        self._sidebar_sep = sidebar_sep
 
         self._nav_icons: dict[str, _SidebarIcon] = {}
-        y_offset = 8
+        y_offset = 12
         for view_name in self.NAV_ITEMS:
             icon = _SidebarIcon(sidebar, theme, view_name,
                                 command=lambda n=view_name: self._switch_view(n))
@@ -269,20 +262,6 @@ class App:
         self._content.pack(side="left", fill="both", expand=True)
         self._content.grid_rowconfigure(0, weight=1)
         self._content.grid_columnconfigure(0, weight=1)
-
-    def _draw_hud_border(self, theme: dict) -> None:
-        """Draw HUD-style accent line with tick marks"""
-        c = self._header_border
-        c.delete("all")
-        w = c.winfo_width()
-        accent = theme["accent"]
-        dim = theme["bg_surface0"]
-        # Main accent line
-        c.create_line(0, 1, w, 1, fill=accent, width=1)
-        # Tick marks at 20% intervals
-        for i in range(1, 5):
-            x = int(w * i / 5)
-            c.create_line(x, 0, x, 3, fill=dim, width=1)
 
     def _switch_view(self, view_name: str) -> None:
         if self._active_view:
@@ -334,8 +313,8 @@ class App:
         style = ttk.Style()
         apply_style(style, new_theme)
 
-        self._draw_hud_border(new_theme)
-        self._sidebar_line.configure(bg=new_theme["accent"])
+        self._header_sep.configure(bg=new_theme["glass_border"])
+        self._sidebar_sep.configure(bg=new_theme["glass_border"])
 
         for icon in self._nav_icons.values():
             icon.on_theme_changed(new_theme)

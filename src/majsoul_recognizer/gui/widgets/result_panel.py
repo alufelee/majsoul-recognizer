@@ -15,7 +15,7 @@ class _SectionCard(tk.Frame):
     def __init__(self, parent, theme: dict[str, str], label: str,
                  color_token: str, **kwargs):
         super().__init__(parent, bg=theme["bg_crust"], highlightthickness=1,
-                         highlightbackground=theme["bg_surface0"],
+                         highlightbackground=theme["glass_border"],
                          highlightcolor=theme[color_token], **kwargs)
         self._theme = theme
         self._color_key = color_token
@@ -53,7 +53,7 @@ class _SectionCard(tk.Frame):
     def on_theme_changed(self, theme: dict[str, str]) -> None:
         self._theme = theme
         self.configure(bg=theme["bg_crust"],
-                       highlightbackground=theme["bg_surface0"],
+                       highlightbackground=theme["glass_border"],
                        highlightcolor=theme[self._color_key])
         self._draw_border_accent(theme[self._color_key])
         self._label.configure(bg=theme["bg_crust"], fg=theme["fg_muted"])
@@ -64,15 +64,15 @@ class ResultPanel(tk.Frame):
     """Card-based recognition result panel — HUD style"""
 
     _CARD_DEFS: list[tuple[str, str]] = [
-        ("\u25b8 局次", "blue"),
-        ("\u25b8 宝牌", "yellow"),
-        ("\u25b8 手牌", "green"),
-        ("\u25b8 摸牌", "green"),
-        ("\u25b8 副露", "peach"),
-        ("\u25b8 分数", "mauve"),
-        ("\u25b8 牌河", "teal"),
-        ("\u25b8 动作", "sky"),
-        ("\u25b8 警告", "red"),
+        ("局次", "blue"),
+        ("宝牌", "yellow"),
+        ("手牌", "green"),
+        ("摸牌", "green"),
+        ("副露", "peach"),
+        ("分数", "mauve"),
+        ("牌河", "teal"),
+        ("动作", "sky"),
+        ("警告", "red"),
     ]
 
     def __init__(self, parent, theme: dict[str, str], **kwargs):
@@ -84,7 +84,7 @@ class ResultPanel(tk.Frame):
         # Header row
         header = tk.Frame(self, bg=theme["bg_mantle"])
         header.pack(fill="x", padx=8, pady=(8, 4))
-        tk.Label(header, text="// 识别结果", bg=theme["bg_mantle"],
+        tk.Label(header, text="识别结果", bg=theme["bg_mantle"],
                  fg=theme["accent"],
                  font=("Menlo" if __import__("sys").platform == "darwin" else "Consolas", 11, "bold"),
                  anchor="w").pack(side="left")

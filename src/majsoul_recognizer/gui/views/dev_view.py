@@ -50,12 +50,12 @@ class DevView(BaseView):
         mono = "Menlo" if sys.platform == "darwin" else "Consolas"
         self._json_text = tk.Text(json_panel, wrap="none", state="disabled",
                                   font=(mono, 10), bg=theme["bg_crust"],
-                                  fg=theme["accent"],
-                                  insertbackground=theme["accent"],
+                                  fg=theme["fg_primary"],
+                                  insertbackground=theme["fg_primary"],
                                   selectbackground=theme["accent_dim"],
                                   height=8, bd=0,
                                   highlightthickness=1,
-                                  highlightbackground=theme["bg_surface0"])
+                                  highlightbackground=theme["glass_border"])
         json_scroll = ttk.Scrollbar(json_panel, orient="vertical",
                                     command=self._json_text.yview)
         self._json_text.configure(yscrollcommand=json_scroll.set)
@@ -127,4 +127,5 @@ class DevView(BaseView):
         super().on_theme_changed(theme)
         self._zone_canvas.on_theme_changed(theme)
         self._det_canvas.on_theme_changed(theme)
-        self._json_text.configure(bg=theme["bg_crust"], fg=theme["fg_primary"])
+        self._json_text.configure(bg=theme["bg_crust"], fg=theme["fg_primary"],
+                                  highlightbackground=theme["glass_border"])

@@ -3,7 +3,7 @@
 Theme 类和 get_theme() 不依赖 tkinter。
 apply_style() 内部延迟导入 tkinter，仅在运行时需要。
 
-Cyberpunk HUD (dark) / 冷光科技 (light)
+暗色玻璃 (dark) / 浅色玻璃 (light)
 """
 
 from __future__ import annotations
@@ -12,66 +12,72 @@ from typing import Any
 
 
 class Theme:
-    """主题颜色方案 — Cyberpunk HUD (dark) / 冷光科技 (light)"""
+    """主题颜色方案 — 暗色玻璃 (dark) / 浅色玻璃 (light)"""
 
     DARK = {
-        # 背景
-        "bg_base": "#0a0a0f",
-        "bg_mantle": "#0e0e16",
-        "bg_surface0": "#1a1a2e",
-        "bg_surface1": "#252540",
-        "bg_crust": "#060609",
+        # 背景 — 深色 slate 层级
+        "bg_base": "#0F172A",
+        "bg_mantle": "#131C31",
+        "bg_surface0": "#1E293B",
+        "bg_surface1": "#273549",
+        "bg_crust": "#0B1120",
         # 文字
-        "fg_primary": "#e0e0e8",
-        "fg_secondary": "#8888a0",
-        "fg_muted": "#4a4a6a",
-        # 强调
-        "accent": "#00ff88",
-        "accent_dim": "#0a2a1a",
+        "fg_primary": "#F1F5F9",
+        "fg_secondary": "#94A3B8",
+        "fg_muted": "#64748B",
+        # 强调 — 靛蓝
+        "accent": "#5E6AD2",
+        "accent_dim": "#2A305A",
         # 语义色
-        "green": "#00ff88",
-        "peach": "#ff8844",
-        "red": "#ff3366",
-        "blue": "#00bbff",
-        "yellow": "#ffcc00",
-        "mauve": "#cc44ff",
-        "teal": "#00ccaa",
-        "lavender": "#8888ff",
-        "sky": "#00ddee",
-        "flamingo": "#ff6688",
+        "green": "#22C55E",
+        "peach": "#F97316",
+        "red": "#EF4444",
+        "blue": "#3B82F6",
+        "yellow": "#EAB308",
+        "mauve": "#A855F7",
+        "teal": "#14B8A6",
+        "lavender": "#818CF8",
+        "sky": "#0EA5E9",
+        "flamingo": "#FB7185",
         # 交互
-        "surface_hover": "#00cc66",
-        # HUD 专用
-        "hud_line": "#00ff8840",
-        "hud_accent": "#00ff88",
-        "hud_dim": "#00ff8820",
+        "surface_hover": "#4F5BD5",
+        # 玻璃质感
+        "glass_border": "#334155",
+        "glass_highlight": "#475569",
+        "glass_shadow": "#0B1120",
     }
 
     LIGHT = {
-        "bg_base": "#f0f2f5",
-        "bg_mantle": "#e4e7ec",
-        "bg_surface0": "#c8ccd4",
-        "bg_surface1": "#b0b6c2",
-        "bg_crust": "#d8dce4",
-        "fg_primary": "#1a1a2e",
-        "fg_secondary": "#4a4a6a",
-        "fg_muted": "#8888a0",
-        "accent": "#008844",
-        "accent_dim": "#ccffee",
-        "green": "#008844",
-        "peach": "#cc5500",
-        "red": "#cc0033",
-        "blue": "#0066cc",
-        "yellow": "#997700",
-        "mauve": "#7722cc",
-        "teal": "#008877",
-        "lavender": "#4444cc",
-        "sky": "#0088aa",
-        "flamingo": "#cc3355",
-        "surface_hover": "#00aa66",
-        "hud_line": "#00884430",
-        "hud_accent": "#008844",
-        "hud_dim": "#00884415",
+        # 背景 — 浅灰层级
+        "bg_base": "#F8FAFC",
+        "bg_mantle": "#F1F5F9",
+        "bg_surface0": "#E2E8F0",
+        "bg_surface1": "#CBD5E1",
+        "bg_crust": "#FFFFFF",
+        # 文字
+        "fg_primary": "#0F172A",
+        "fg_secondary": "#475569",
+        "fg_muted": "#94A3B8",
+        # 强调
+        "accent": "#4F46E5",
+        "accent_dim": "#E0E7FF",
+        # 语义色
+        "green": "#16A34A",
+        "peach": "#EA580C",
+        "red": "#DC2626",
+        "blue": "#2563EB",
+        "yellow": "#CA8A04",
+        "mauve": "#9333EA",
+        "teal": "#0D9488",
+        "lavender": "#6366F1",
+        "sky": "#0284C7",
+        "flamingo": "#E11D48",
+        # 交互
+        "surface_hover": "#6366F1",
+        # 玻璃质感
+        "glass_border": "#CBD5E1",
+        "glass_highlight": "#E2E8F0",
+        "glass_shadow": "#94A3B8",
     }
 
 
@@ -88,7 +94,7 @@ def apply_style(style: Any, theme: dict[str, str]) -> None:
     使用 'clam' 主题引擎以确保自定义颜色在所有平台生效。
     macOS 默认 'aqua' 主题会忽略 background/foreground 等自定义属性。
 
-    使用等宽字体增加终端/科技感。
+    玻璃质感：surface0 按钮 + 微光边框 + 靛蓝强调。
     """
     import sys
     mono = "Menlo" if sys.platform == "darwin" else "Consolas"
@@ -96,7 +102,7 @@ def apply_style(style: Any, theme: dict[str, str]) -> None:
     if "clam" in style.theme_names():
         style.theme_use("clam")
 
-    # Global — monospace base font
+    # Global
     style.configure(".", background=theme["bg_base"],
                      foreground=theme["fg_primary"], borderwidth=0,
                      font=(mono, 10))
@@ -105,9 +111,9 @@ def apply_style(style: Any, theme: dict[str, str]) -> None:
                      foreground=theme["fg_primary"],
                      font=(mono, 10))
 
-    # Default button — surface0 background with border
+    # Default button — surface0 + glass border
     style.configure("TButton", background=theme["bg_surface0"],
-                     foreground=theme["fg_primary"], padding=(12, 4),
+                     foreground=theme["fg_primary"], padding=(12, 6),
                      font=(mono, 9), relief="flat",
                      borderwidth=1, focuscolor=theme["accent"])
     style.map("TButton",
@@ -116,31 +122,31 @@ def apply_style(style: Any, theme: dict[str, str]) -> None:
               foreground=[("active", theme["accent"]),
                           ("disabled", theme["fg_muted"])])
 
-    # Accent button — neon style
+    # Accent button
     style.configure("Accent.TButton", background=theme["accent"],
-                     foreground=theme["bg_base"], padding=(12, 4),
+                     foreground="#FFFFFF", padding=(12, 6),
                      font=(mono, 9, "bold"))
     style.map("Accent.TButton",
               background=[("active", theme["surface_hover"]),
                           ("disabled", theme["bg_surface0"])],
               foreground=[("disabled", theme["fg_muted"])])
 
-    # Small status bar buttons
+    # Small buttons
     style.configure("Small.TButton", background=theme["bg_surface0"],
-                     foreground=theme["fg_primary"], padding=(8, 2),
+                     foreground=theme["fg_primary"], padding=(8, 3),
                      font=(mono, 9))
     style.map("Small.TButton",
               background=[("active", theme["bg_surface1"])],
               foreground=[("active", theme["accent"])])
 
     style.configure("SmallAccent.TButton", background=theme["accent"],
-                     foreground=theme["bg_base"], padding=(8, 2),
+                     foreground="#FFFFFF", padding=(8, 3),
                      font=(mono, 9, "bold"))
     style.map("SmallAccent.TButton",
               background=[("active", theme["surface_hover"])],
-              foreground=[("active", theme["bg_base"])])
+              foreground=[("active", "#FFFFFF")])
 
-    # Panel labels — accent colored headers
+    # Panel labels
     style.configure("PanelHeader.TLabel", background=theme["bg_mantle"],
                      foreground=theme["accent"],
                      font=(mono, 11, "bold"))

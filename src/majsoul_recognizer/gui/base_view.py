@@ -58,7 +58,7 @@ class BaseView(ttk.Frame):
             self._worker.update_engine(engine)
 
     def _create_status_bar(self) -> tuple[ttk.Frame, tk.Canvas, ttk.Label, ttk.Label]:
-        """Create a uniform status bar component — HUD style.
+        """Create a uniform status bar component — glass style.
 
         Returns: (outer_frame, status_dot, status_label, status_info)
                  Place outer_frame in grid (row=1).
@@ -66,7 +66,7 @@ class BaseView(ttk.Frame):
         """
         outer = ttk.Frame(self)
 
-        sep = tk.Canvas(outer, height=1, bg=self._theme["accent"],
+        sep = tk.Canvas(outer, height=1, bg=self._theme["glass_border"],
                         highlightthickness=0)
         sep.pack(side="top", fill="x")
 
@@ -74,18 +74,18 @@ class BaseView(ttk.Frame):
         bar.pack(side="top", fill="x")
         bar.pack_propagate(False)
 
-        # HUD-style status indicator: small diamond
+        # Status indicator: small circle
         dot = tk.Canvas(bar, width=16, height=16,
                         bg=self._theme["bg_crust"], highlightthickness=0)
-        dot.pack(side="left", padx=(8, 4), pady=8)
-        dot.create_polygon(8, 3, 13, 8, 8, 13, 3, 8,
-                           fill=self._theme["accent"], outline="")
+        dot.pack(side="left", padx=(12, 4), pady=8)
+        dot.create_oval(4, 4, 12, 12,
+                        fill=self._theme["accent"], outline="")
 
         status_label = ttk.Label(bar, text="就绪", style="Status.TLabel")
         status_label.pack(side="left")
 
         info_label = ttk.Label(bar, text="", style="Status.TLabel")
-        info_label.pack(side="right", padx=8)
+        info_label.pack(side="right", padx=12)
 
         self._status_label = status_label
         self._status_bar_frame = bar
