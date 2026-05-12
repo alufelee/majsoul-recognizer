@@ -27,16 +27,16 @@ class _SectionCard(tk.Frame):
         self._border = border
         self._draw_border_accent(theme[color_token])
 
-        inner = tk.Frame(self, bg=theme["bg_crust"])
-        inner.pack(side="left", fill="both", expand=True, padx=(8, 6), pady=6)
+        self._inner = tk.Frame(self, bg=theme["bg_crust"])
+        self._inner.pack(side="left", fill="both", expand=True, padx=(8, 6), pady=6)
 
-        self._label = tk.Label(inner, text=label, bg=theme["bg_crust"],
+        self._label = tk.Label(self._inner, text=label, bg=theme["bg_crust"],
                                fg=theme["fg_muted"],
                                font=("Menlo" if __import__("sys").platform == "darwin" else "Consolas", 9),
                                anchor="w")
         self._label.pack(anchor="w", fill="x")
 
-        self._value = tk.Label(inner, text="-", bg=theme["bg_crust"],
+        self._value = tk.Label(self._inner, text="-", bg=theme["bg_crust"],
                                fg=theme["fg_primary"],
                                font=("Menlo" if __import__("sys").platform == "darwin" else "Consolas", 10),
                                anchor="w", wraplength=180, justify="left")
@@ -55,7 +55,9 @@ class _SectionCard(tk.Frame):
         self.configure(bg=theme["bg_crust"],
                        highlightbackground=theme["glass_border"],
                        highlightcolor=theme[self._color_key])
+        self._border.configure(bg=theme["bg_crust"])
         self._draw_border_accent(theme[self._color_key])
+        self._inner.configure(bg=theme["bg_crust"])
         self._label.configure(bg=theme["bg_crust"], fg=theme["fg_muted"])
         self._value.configure(bg=theme["bg_crust"], fg=theme["fg_primary"])
 
