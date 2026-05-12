@@ -82,12 +82,13 @@ class ResultPanel(tk.Frame):
         self.pack_propagate(False)
 
         # Header row
-        header = tk.Frame(self, bg=theme["bg_mantle"])
-        header.pack(fill="x", padx=8, pady=(8, 4))
-        tk.Label(header, text="识别结果", bg=theme["bg_mantle"],
-                 fg=theme["accent"],
-                 font=("Menlo" if __import__("sys").platform == "darwin" else "Consolas", 11, "bold"),
-                 anchor="w").pack(side="left")
+        self._header = tk.Frame(self, bg=theme["bg_mantle"])
+        self._header.pack(fill="x", padx=8, pady=(8, 4))
+        self._header_label = tk.Label(self._header, text="识别结果", bg=theme["bg_mantle"],
+                                      fg=theme["accent"],
+                                      font=("Menlo" if __import__("sys").platform == "darwin" else "Consolas", 11, "bold"),
+                                      anchor="w")
+        self._header_label.pack(side="left")
 
         # Card list
         self._cards: list[_SectionCard] = []
@@ -168,12 +169,7 @@ class ResultPanel(tk.Frame):
     def on_theme_changed(self, theme: dict[str, str]) -> None:
         self._theme = theme
         self.configure(bg=theme["bg_mantle"])
-        # Update header
-        for child in self.winfo_children():
-            if isinstance(child, tk.Frame) and not isinstance(child, _SectionCard):
-                child.configure(bg=theme["bg_mantle"])
-                for label in child.winfo_children():
-                    if isinstance(label, tk.Label):
-                        label.configure(bg=theme["bg_mantle"])
+        self._header.configure(bg=theme["bg_mantle"])
+        self._header_label.configure(bg=theme["bg_mantle"], fg=theme["accent"])
         for card in self._cards:
             card.on_theme_changed(theme)

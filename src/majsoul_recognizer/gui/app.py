@@ -197,27 +197,39 @@ class App:
         import sys
         mono = "Menlo" if sys.platform == "darwin" else "Consolas"
 
+        # Collect tk widgets that need theme updates
+        self._theme_widgets: list[tuple] = []  # (widget, bg_key, fg_key_or_None)
+
         # Header bar — glass panel style
         header_frame = tk.Frame(self._root, bg=theme["bg_mantle"])
         header_frame.pack(side="top", fill="x")
+        self._theme_widgets.append((header_frame, "bg_mantle", None))
 
         header = tk.Frame(header_frame, bg=theme["bg_mantle"])
         header.pack(side="top", fill="x")
+        self._theme_widgets.append((header, "bg_mantle", None))
 
         # Title — clean accent color
-        tk.Label(header, text="雀魂麻将识别助手", bg=theme["bg_mantle"],
-                 fg=theme["accent"],
-                 font=(mono, 13, "bold")).pack(side="left", padx=16, pady=8)
+        title_lbl = tk.Label(header, text="雀魂麻将识别助手", bg=theme["bg_mantle"],
+                             fg=theme["accent"],
+                             font=(mono, 13, "bold"))
+        title_lbl.pack(side="left", padx=16, pady=8)
+        self._theme_widgets.append((title_lbl, "bg_mantle", "accent"))
+
         # Version badge — surface0 bg
-        tk.Label(header, text="v0.1", bg=theme["bg_surface0"],
-                 fg=theme["fg_secondary"],
-                 font=(mono, 9), padx=6, pady=2).pack(side="left", padx=(0, 12), pady=8)
+        ver_lbl = tk.Label(header, text="v0.1", bg=theme["bg_surface0"],
+                           fg=theme["fg_secondary"],
+                           font=(mono, 9), padx=6, pady=2)
+        ver_lbl.pack(side="left", padx=(0, 12), pady=8)
+        self._theme_widgets.append((ver_lbl, "bg_surface0", "fg_secondary"))
 
         # Status indicator
-        tk.Label(header, text="● 就绪", bg=theme["bg_mantle"],
-                 fg=theme["green"],
-                 font=(mono, 9)).pack(side="right", padx=(8, 12), pady=8)
-        self._header_status = header.winfo_children()[-1]
+        status_lbl = tk.Label(header, text="● 就绪", bg=theme["bg_mantle"],
+                              fg=theme["green"],
+                              font=(mono, 9))
+        status_lbl.pack(side="right", padx=(8, 12), pady=8)
+        self._header_status = status_lbl
+        self._theme_widgets.append((status_lbl, "bg_mantle", "green"))
 
         ttk.Button(header, text="切换主题",
                    command=self._toggle_theme).pack(side="right", padx=4, pady=6)
@@ -236,10 +248,12 @@ class App:
         # Sidebar — glass panel with right border
         sidebar_outer = tk.Frame(body, bg=theme["bg_base"])
         sidebar_outer.pack(side="left", fill="y")
+        self._theme_widgets.append((sidebar_outer, "bg_base", None))
 
         sidebar = tk.Canvas(sidebar_outer, width=self.SIDEBAR_WIDTH,
                             bg=theme["bg_base"], highlightthickness=0)
         sidebar.pack(side="left", fill="y", expand=True)
+        self._sidebar_canvas = sidebar
 
         # Glass border separator
         sidebar_sep = tk.Canvas(sidebar_outer, width=1, bg=theme["glass_border"],
@@ -313,8 +327,16 @@ class App:
         style = ttk.Style()
         apply_style(style, new_theme)
 
+        # Update collected tk widgets
+        for widget, bg_key, fg_key in self._theme_widgets:
+            widget.configure(bg=new_theme[bg_key])
+            if fg_key is not None:
+                widget.configure(fg=new_theme[fg_key])
+
+        # Update separators and sidebar canvas
         self._header_sep.configure(bg=new_theme["glass_border"])
         self._sidebar_sep.configure(bg=new_theme["glass_border"])
+        self._sidebar_canvas.configure(bg=new_theme["bg_base"])
 
         for icon in self._nav_icons.values():
             icon.on_theme_changed(new_theme)
