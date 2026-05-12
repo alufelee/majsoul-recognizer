@@ -1,4 +1,4 @@
-"""Theme system tests — Catppuccin Mocha / Latte"""
+"""Theme system tests — Cyberpunk HUD / 冷光科技"""
 
 from majsoul_recognizer.gui.theme import Theme, get_theme
 
@@ -10,6 +10,7 @@ NEW_KEYS = {
     "blue", "yellow", "mauve", "teal",
     "lavender", "sky", "flamingo",
     "surface_hover",
+    "hud_line", "hud_accent", "hud_dim",
 }
 
 
@@ -27,7 +28,8 @@ class TestThemeColors:
         for name, colors in [("DARK", Theme.DARK), ("LIGHT", Theme.LIGHT)]:
             for key, value in colors.items():
                 assert value.startswith("#"), f"{name}.{key} = {value!r}"
-                assert len(value) == 7, f"{name}.{key} = {value!r}"
+                # Allow #RRGGBB or #RRGGBBAA
+                assert len(value) in (7, 9), f"{name}.{key} = {value!r}"
 
 
 class TestGetTheme:
@@ -46,9 +48,9 @@ class TestGetTheme:
     def test_returns_copy_not_reference(self):
         result = get_theme("dark")
         result["accent"] = "#CHANGED"
-        assert Theme.DARK["accent"] == "#89b4fa"
+        assert Theme.DARK["accent"] == "#00ff88"
 
     def test_light_returns_copy_not_reference(self):
         result = get_theme("light")
         result["accent"] = "#CHANGED"
-        assert Theme.LIGHT["accent"] == "#1e66f5"
+        assert Theme.LIGHT["accent"] == "#008844"

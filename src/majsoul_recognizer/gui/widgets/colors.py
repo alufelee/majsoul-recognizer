@@ -1,15 +1,16 @@
 """牌面颜色映射 + 区域颜色方案
 
 纯逻辑模块，无 tkinter 依赖，可全平台测试。
+Cyberpunk HUD 风格 — 霓虹色检测框。
 """
 
 _TILE_CATEGORY_COLORS: dict[str, str] = {
-    "m": "#b4befe",    # Manzu - lavender
-    "p": "#89dceb",    # Pinzu - sky
-    "s": "#f38ba8",    # Souzu - red
-    "z": "#f2cdcd",    # Honors - flamingo
-    "r": "#fab387",    # Red dora - peach
-    "x": "#6c7086",    # Special - fg_muted
+    "m": "#8888ff",    # Manzu - lavender neon
+    "p": "#00ddee",    # Pinzu - cyan neon
+    "s": "#ff3366",    # Souzu - red neon
+    "z": "#ff6688",    # Honors - pink neon
+    "r": "#ffcc00",    # Red dora - yellow neon
+    "x": "#4a4a6a",    # Special - muted
 }
 
 
@@ -35,14 +36,14 @@ def _get_tile_category(tile_code: str) -> str:
 
 
 ZONE_COLORS: dict[str, str] = {
-    "hand": "#a6e3a1",
-    "dora": "#fab387",
-    "round_info": "#89b4fa",
-    "score_self": "#cba6f7", "score_right": "#cba6f7",
-    "score_opposite": "#cba6f7", "score_left": "#cba6f7",
-    "discards_self": "#94e2d5", "discards_right": "#94e2d5",
-    "discards_opposite": "#94e2d5", "discards_left": "#94e2d5",
-    "calls_self": "#f9e2af",
-    "actions": "#fab387",
-    "timer": "#6c7086",
+    "hand": "#00ff88",
+    "dora": "#ffcc00",
+    "round_info": "#00bbff",
+    "score_self": "#cc44ff", "score_right": "#cc44ff",
+    "score_opposite": "#cc44ff", "score_left": "#cc44ff",
+    "discards_self": "#00ccaa", "discards_right": "#00ccaa",
+    "discards_opposite": "#00ccaa", "discards_left": "#00ccaa",
+    "calls_self": "#ff8844",
+    "actions": "#ff8844",
+    "timer": "#4a4a6a",
 }

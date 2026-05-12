@@ -6,74 +6,94 @@ from tkinter import ttk
 from majsoul_recognizer.types import GameState
 
 
-class _SectionCard(ttk.Frame):
-    """Single card: left color border + label row + value row"""
+class _SectionCard(tk.Frame):
+    """Single card: HUD border + label row + value row
+
+    Uses tk.Frame directly for bg control (ttk.Frame style bg is less reliable).
+    """
 
     def __init__(self, parent, theme: dict[str, str], label: str,
                  color_token: str, **kwargs):
-        super().__init__(parent, style="Card.TFrame", **kwargs)
+        super().__init__(parent, bg=theme["bg_crust"], highlightthickness=1,
+                         highlightbackground=theme["bg_surface0"],
+                         highlightcolor=theme[color_token], **kwargs)
         self._theme = theme
         self._color_key = color_token
 
-        border = tk.Canvas(self, width=2, highlightthickness=0,
-                           bg=theme[color_token])
+        # Left accent line
+        border = tk.Canvas(self, width=3, highlightthickness=0,
+                           bg=theme["bg_crust"])
         border.pack(side="left", fill="y")
         self._border = border
+        self._draw_border_accent(theme[color_token])
 
-        inner = ttk.Frame(self, style="Card.TFrame")
+        inner = tk.Frame(self, bg=theme["bg_crust"])
         inner.pack(side="left", fill="both", expand=True, padx=(8, 6), pady=6)
 
-        self._label = ttk.Label(inner, text=label, style="CardLabel.TLabel")
-        self._label.pack(anchor="w")
+        self._label = tk.Label(inner, text=label, bg=theme["bg_crust"],
+                               fg=theme["fg_muted"],
+                               font=("Menlo" if __import__("sys").platform == "darwin" else "Consolas", 9),
+                               anchor="w")
+        self._label.pack(anchor="w", fill="x")
 
-        self._value = ttk.Label(inner, text="-", style="CardValue.TLabel",
-                                wraplength=180)
-        self._value.pack(anchor="w", pady=(2, 0))
+        self._value = tk.Label(inner, text="-", bg=theme["bg_crust"],
+                               fg=theme["fg_primary"],
+                               font=("Menlo" if __import__("sys").platform == "darwin" else "Consolas", 10),
+                               anchor="w", wraplength=180, justify="left")
+        self._value.pack(anchor="w", fill="x", pady=(2, 0))
+
+    def _draw_border_accent(self, color: str) -> None:
+        """Draw accent line on the border canvas"""
+        self._border.delete("all")
+        self._border.create_line(1, 0, 1, 1000, fill=color, width=2)
 
     def update_value(self, text: str) -> None:
         self._value.config(text=text)
 
     def on_theme_changed(self, theme: dict[str, str]) -> None:
         self._theme = theme
-        self._border.configure(bg=theme[self._color_key])
+        self.configure(bg=theme["bg_crust"],
+                       highlightbackground=theme["bg_surface0"],
+                       highlightcolor=theme[self._color_key])
+        self._draw_border_accent(theme[self._color_key])
+        self._label.configure(bg=theme["bg_crust"], fg=theme["fg_muted"])
+        self._value.configure(bg=theme["bg_crust"], fg=theme["fg_primary"])
 
 
-class ResultPanel(ttk.Frame):
-    """Card-based recognition result panel"""
+class ResultPanel(tk.Frame):
+    """Card-based recognition result panel — HUD style"""
 
     _CARD_DEFS: list[tuple[str, str]] = [
-        ("局次", "blue"),
-        ("宝牌", "blue"),
-        ("手牌", "green"),
-        ("摸牌", "green"),
-        ("副露", "yellow"),
-        ("分数", "mauve"),
-        ("牌河", "teal"),
-        ("动作", "peach"),
-        ("警告", "red"),
+        ("\u25b8 局次", "blue"),
+        ("\u25b8 宝牌", "yellow"),
+        ("\u25b8 手牌", "green"),
+        ("\u25b8 摸牌", "green"),
+        ("\u25b8 副露", "peach"),
+        ("\u25b8 分数", "mauve"),
+        ("\u25b8 牌河", "teal"),
+        ("\u25b8 动作", "sky"),
+        ("\u25b8 警告", "red"),
     ]
 
     def __init__(self, parent, theme: dict[str, str], **kwargs):
-        super().__init__(parent, **kwargs)
+        super().__init__(parent, bg=theme["bg_mantle"], **kwargs)
         self._theme = theme
         self.configure(width=240)
         self.pack_propagate(False)
 
-        # Container background
-        inner = ttk.Frame(self, style="StatusBar.TFrame")
-        inner.pack(fill="both", expand=True)
-
         # Header row
-        header = ttk.Frame(inner, style="StatusBar.TFrame")
+        header = tk.Frame(self, bg=theme["bg_mantle"])
         header.pack(fill="x", padx=8, pady=(8, 4))
-        ttk.Label(header, text="识别结果", style="PanelHeader.TLabel").pack(
-            side="left")
+        tk.Label(header, text="// 识别结果", bg=theme["bg_mantle"],
+                 fg=theme["accent"],
+                 font=("Menlo" if __import__("sys").platform == "darwin" else "Consolas", 11, "bold"),
+                 anchor="w").pack(side="left")
 
         # Card list
         self._cards: list[_SectionCard] = []
         for label, color in self._CARD_DEFS:
-            card = _SectionCard(inner, theme, label, color)
-            card.pack(fill="x", padx=6, pady=3)
+            card = _SectionCard(self, theme, label, color)
+            card.pack(fill="x", padx=6, pady=2)
             self._cards.append(card)
 
     def update_state(self, state: GameState | None,
@@ -147,5 +167,13 @@ class ResultPanel(ttk.Frame):
 
     def on_theme_changed(self, theme: dict[str, str]) -> None:
         self._theme = theme
+        self.configure(bg=theme["bg_mantle"])
+        # Update header
+        for child in self.winfo_children():
+            if isinstance(child, tk.Frame) and not isinstance(child, _SectionCard):
+                child.configure(bg=theme["bg_mantle"])
+                for label in child.winfo_children():
+                    if isinstance(label, tk.Label):
+                        label.configure(bg=theme["bg_mantle"])
         for card in self._cards:
             card.on_theme_changed(theme)

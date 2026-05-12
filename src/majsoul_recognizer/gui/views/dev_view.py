@@ -50,7 +50,12 @@ class DevView(BaseView):
         mono = "Menlo" if sys.platform == "darwin" else "Consolas"
         self._json_text = tk.Text(json_panel, wrap="none", state="disabled",
                                   font=(mono, 10), bg=theme["bg_crust"],
-                                  fg=theme["fg_primary"], height=8)
+                                  fg=theme["accent"],
+                                  insertbackground=theme["accent"],
+                                  selectbackground=theme["accent_dim"],
+                                  height=8, bd=0,
+                                  highlightthickness=1,
+                                  highlightbackground=theme["bg_surface0"])
         json_scroll = ttk.Scrollbar(json_panel, orient="vertical",
                                     command=self._json_text.yview)
         self._json_text.configure(yscrollcommand=json_scroll.set)

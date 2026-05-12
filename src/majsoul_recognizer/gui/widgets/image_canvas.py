@@ -82,17 +82,33 @@ class ImageCanvas(tk.Canvas):
         self.configure(bg=theme["bg_crust"])
 
     def show_empty_state(self, hint_text: str) -> None:
-        """Show centered empty state hint"""
+        """Show centered empty state with HUD corner brackets"""
         self.delete("all")
         self._photo = None
         cw = max(self.winfo_width(), self.winfo_reqwidth(), 200)
         ch = max(self.winfo_height(), self.winfo_reqheight(), 150)
-        rw, rh = 48, 36
+        rw, rh = 56, 40
         rx, ry = (cw - rw) // 2, (ch - rh) // 2 - 12
-        self.create_rectangle(rx, ry, rx + rw, ry + rh,
-                              outline=self._theme["bg_surface0"], width=2)
-        self.create_text(cw // 2, ry + rh + 16, text=hint_text,
-                         fill=self._theme["fg_muted"], font=("", 11))
+        cl = 8  # Corner bracket length
+        color = self._theme["accent"]
+        dim = self._theme["fg_muted"]
+
+        # HUD corner brackets
+        # Top-left
+        self.create_line(rx, ry, rx + cl, ry, fill=color, width=1.5)
+        self.create_line(rx, ry, rx, ry + cl, fill=color, width=1.5)
+        # Top-right
+        self.create_line(rx + rw - cl, ry, rx + rw, ry, fill=color, width=1.5)
+        self.create_line(rx + rw, ry, rx + rw, ry + cl, fill=color, width=1.5)
+        # Bottom-left
+        self.create_line(rx, ry + rh - cl, rx, ry + rh, fill=color, width=1.5)
+        self.create_line(rx, ry + rh, rx + cl, ry + rh, fill=color, width=1.5)
+        # Bottom-right
+        self.create_line(rx + rw - cl, ry + rh, rx + rw, ry + rh, fill=color, width=1.5)
+        self.create_line(rx + rw, ry + rh - cl, rx + rw, ry + rh, fill=color, width=1.5)
+
+        self.create_text(cw // 2, ry + rh + 18, text=hint_text,
+                         fill=dim, font=("", 10))
 
     def clear(self) -> None:
         """清空画布"""
