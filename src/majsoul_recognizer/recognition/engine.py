@@ -55,6 +55,8 @@ class RecognitionEngine:
         self._detector: TileDetector | None = None
         self._ocr: TextRecognizer | None = None
         self._matcher: PatternMatcher | None = None
+        self._classifier: "TileClassifier | None" = None
+        self._classifier_attempted: bool = False
         self._builder = GameStateBuilder(self._config)
         self._validator = Validator(self._config)
 
@@ -92,6 +94,24 @@ class RecognitionEngine:
             self._matcher = PatternMatcher(self._config.get_template_dir())
         return self._matcher
 
+    def _ensure_classifier(self):
+        if self._classifier is not None:
+            return self._classifier
+        if not self._config.enable_vit_classifier:
+            return None
+        if self._classifier_attempted:
+            return None
+        self._classifier_attempted = True
+        try:
+            from majsoul_recognizer.recognition.tile_classifier import TileClassifier
+            self._classifier = TileClassifier(self._config.vit_model_name)
+            logger.info("ViT classifier loaded")
+        except ImportError:
+            logger.debug("ViT classifier unavailable (torch/transformers not installed)")
+        except Exception as e:
+            logger.warning("ViT classifier init failed: %s", e)
+        return self._classifier
+
     def recognize(
         self,
         zones: dict[str, np.ndarray],
@@ -128,6 +148,8 @@ class RecognitionEngine:
             and hasattr(detector, "detect_full_image")
         )
 
+        scaled_rects: dict[str, tuple[int, int, int, int]] = {}
+
         if use_full_image:
             tile_rects = {name: zone_rects[name] for name in tile_zone_names
                          if name in zone_rects}
@@ -135,11 +157,9 @@ class RecognitionEngine:
                 UltralyticsTileDetector,
             )
             assert isinstance(detector, UltralyticsTileDetector)
-            # zone_rects 基于 1920x1080 归一化坐标，需缩放到全图实际尺寸
             img_h, img_w = full_image.shape[:2]
             scale_x = img_w / 1920.0
             scale_y = img_h / 1080.0
-            scaled_rects = {}
             for name, (x, y, w, h) in tile_rects.items():
                 scaled_rects[name] = (
                     int(x * scale_x), int(y * scale_y),
@@ -152,6 +172,36 @@ class RecognitionEngine:
                 detections = detector.detect_batch(tile_images, confidence)
             else:
                 detections = {name: detector.detect(img, confidence) for name, img in tile_images}
+
+        # ViT 二次分类
+        classifier = self._ensure_classifier()
+        if classifier is not None and detections:
+            for zone_name, dets in detections.items():
+                if not dets:
+                    continue
+                if scaled_rects and zone_name in scaled_rects:
+                    source = full_image
+                    ox, oy = scaled_rects[zone_name][0], scaled_rects[zone_name][1]
+                elif zone_name in zones:
+                    source = zones[zone_name]
+                    ox, oy = 0, 0
+                else:
+                    continue
+                h_img, w_img = source.shape[:2]
+                crops = [
+                    source[
+                        max(0, oy + d.bbox.y):min(h_img, oy + d.bbox.y + d.bbox.height),
+                        max(0, ox + d.bbox.x):min(w_img, ox + d.bbox.x + d.bbox.width),
+                    ]
+                    for d in dets
+                ]
+                vit_results = classifier.classify_batch(crops)
+                for i, (tile_code, conf) in enumerate(vit_results):
+                    if tile_code and conf >= self._config.vit_classifier_threshold:
+                        dets[i] = dets[i].model_copy(update={
+                            "tile_code": tile_code,
+                            "confidence": conf,
+                        })
 
         # 设置 zone_name
         for zone_name_str, dets in detections.items():
@@ -261,4 +311,6 @@ class RecognitionEngine:
         self._detector = None
         self._ocr = None
         self._matcher = None
+        self._classifier = None
+        self._classifier_attempted = False
         self._validator.reset()

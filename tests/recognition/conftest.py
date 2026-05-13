@@ -86,3 +86,12 @@ def fake_template_dir(tmp_path_factory):
         cv2.putText(img, text, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
         cv2.imwrite(str(template_dir / f"{filename}.png"), img)
     return template_dir
+
+
+@pytest.fixture
+def mock_vit_classifier():
+    """Mock TileClassifier for engine tests"""
+    from unittest.mock import MagicMock
+    classifier = MagicMock()
+    classifier.classify_batch.return_value = [("9s", 0.99)]
+    return classifier
