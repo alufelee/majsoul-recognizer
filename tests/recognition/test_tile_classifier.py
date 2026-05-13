@@ -1,9 +1,17 @@
 """TileClassifier 测试"""
 
+from unittest.mock import MagicMock
+
 import numpy as np
 import pytest
 
 from majsoul_recognizer.tile import Tile
+
+try:
+    import torch
+    _HAS_TORCH = True
+except ImportError:
+    _HAS_TORCH = False
 
 
 class TestLabelMapping:
@@ -105,3 +113,99 @@ class TestIsRedDora:
         img[10:50, 5:45] = [220, 220, 220]
         img[20:40, 15:35] = [200, 100, 0]
         assert _is_red_dora(img, "5m") is False
+
+
+_PJURA_ID2LABEL = {
+    0: "1b", 1: "1n", 2: "1p", 3: "2b", 4: "2n", 5: "2p",
+    6: "3b", 7: "3n", 8: "3p", 9: "4b", 10: "4n", 11: "4p",
+    12: "5b", 13: "5n", 14: "5p", 15: "6b", 16: "6n", 17: "6p",
+    18: "7b", 19: "7n", 20: "7p", 21: "8b", 22: "8n", 23: "8p",
+    24: "9b", 25: "9n", 26: "9p", 27: "ew", 28: "gd", 29: "nw",
+    30: "rd", 31: "sw", 32: "wd", 33: "ww",
+}
+
+
+def _make_mock_classifier():
+    from majsoul_recognizer.recognition.tile_classifier import TileClassifier
+    classifier = TileClassifier.__new__(TileClassifier)
+    classifier._model = MagicMock()
+    classifier._processor = MagicMock()
+    classifier._model.config.id2label = _PJURA_ID2LABEL
+    classifier._device = MagicMock()
+    return classifier
+
+
+def _set_mock_output(classifier, class_index, batch_size=1):
+    try:
+        import torch
+    except ImportError:
+        pytest.skip("torch not installed")
+    logits = torch.full((batch_size, 34), -10.0)
+    logits[0, class_index] = 10.0
+    mock_output = MagicMock()
+    mock_output.logits = logits
+    classifier._model.return_value = mock_output
+    classifier._processor.return_value = {"pixel_values": MagicMock()}
+
+
+@pytest.mark.skipif(
+    not _HAS_TORCH,
+    reason="torch not installed",
+)
+class TestTileClassifierBatch:
+    """P3: TileClassifier classify_batch 测试"""
+
+    def test_batch_maps_1b_to_1s(self):
+        classifier = _make_mock_classifier()
+        _set_mock_output(classifier, 0)
+        results = classifier.classify_batch([np.zeros((50, 50, 3), dtype=np.uint8)])
+        assert results[0][0] == "1s"
+        assert results[0][1] > 0.99
+
+    def test_batch_maps_ew_to_1z(self):
+        classifier = _make_mock_classifier()
+        _set_mock_output(classifier, 27)
+        results = classifier.classify_batch([np.zeros((50, 50, 3), dtype=np.uint8)])
+        assert results[0][0] == "1z"
+
+    def test_batch_empty_list(self):
+        classifier = _make_mock_classifier()
+        results = classifier.classify_batch([])
+        assert results == []
+
+    def test_batch_none_and_empty_crops(self):
+        classifier = _make_mock_classifier()
+        results = classifier.classify_batch([None, np.array([], dtype=np.uint8)])
+        assert len(results) == 2
+        assert results[0] == ("", 0.0)
+        assert results[1] == ("", 0.0)
+
+    def test_classify_delegates_to_batch(self):
+        classifier = _make_mock_classifier()
+        _set_mock_output(classifier, 30)
+        tile_code, conf = classifier.classify(np.zeros((50, 50, 3), dtype=np.uint8))
+        assert tile_code == "7z"
+        assert conf > 0.99
+
+    def test_inference_failure_returns_empty(self):
+        classifier = _make_mock_classifier()
+        classifier._model.side_effect = RuntimeError("mock failure")
+        classifier._processor.return_value = {"pixel_values": MagicMock()}
+        results = classifier.classify_batch([np.zeros((50, 50, 3), dtype=np.uint8)])
+        assert results == [("", 0.0)]
+
+    def test_red_dora_detection_integrated(self):
+        classifier = _make_mock_classifier()
+        _set_mock_output(classifier, 13)  # "5n" → "5m"
+        red_img = np.zeros((50, 50, 3), dtype=np.uint8)
+        red_img[:, :, 2] = 200
+        results = classifier.classify_batch([red_img])
+        assert results[0][0] == "5mr"
+
+    def test_normal_five_not_red_dora(self):
+        classifier = _make_mock_classifier()
+        _set_mock_output(classifier, 13)  # "5n" → "5m"
+        blue_img = np.zeros((50, 50, 3), dtype=np.uint8)
+        blue_img[:, :, 0] = 200
+        results = classifier.classify_batch([blue_img])
+        assert results[0][0] == "5m"
