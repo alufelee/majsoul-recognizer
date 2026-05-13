@@ -159,6 +159,8 @@ class RecognitionEngine:
                     "scores": {**state.scores, **updates},
                     "warnings": state.warnings + extra_warnings,
                 })
+                # 同步 prev_state 到修正后的 state
+                self._validator.update_prev_state(state)
 
         elapsed = (time.perf_counter() - t_start) * 1000
         logger.info("Recognition done: hand=%d, warnings=%d, %.1fms",

@@ -367,10 +367,16 @@ class Validator:
         )
         base_hand = 13 - kan_count
         actual = len(state.hand) + (1 if state.drawn_tile else 0)
-        # 有 drawn_tile 时总量应为 base_hand + 1
-        expected = base_hand + (1 if state.drawn_tile else 0)
-        if actual != expected:
-            warnings.append(f"hand_count_mismatch: got {actual}, expected {expected}")
+        if state.drawn_tile:
+            # 有摸牌时总量应为 base_hand + 1
+            expected = base_hand + 1
+            if actual != expected:
+                warnings.append(f"hand_count_mismatch: got {actual}, expected {expected}")
+        else:
+            # 无摸牌时允许 base_hand 或 base_hand + 1
+            # (drawn_tile 可能被混入 hand 但未被间隙检测识别)
+            if actual < base_hand or actual > base_hand + 1:
+                warnings.append(f"hand_count_mismatch: got {actual}, expected {base_hand}-{base_hand + 1}")
 
         # 规则 2: 牌数上限
         tile_counter: dict[str, int] = {}
@@ -412,6 +418,10 @@ class Validator:
         self._prev_state = state
         return state.model_copy(update={"warnings": warnings})
 
+    def update_prev_state(self, state: GameState) -> None:
+        """外部修正 state 后同步更新 prev_state（如分数沿用）"""
+        self._prev_state = state
+
     def fuse_detections(self, current: dict[str, list[Detection]]) -> dict[str, list[Detection]]:
         """Detection 级帧间融合"""
         self._detection_window.append(current)
@@ -440,9 +450,9 @@ class Validator:
                         hcx, hcy = hist_det.bbox.center
                         dist = ((cx - hcx) ** 2 + (cy - hcy) ** 2) ** 0.5
                         median_w = _median_value(dets, "width")
-                        # 最小距离保护：即使 median_w 极小，也不应匹配到相邻牌面
-                        min_dist = max(median_w * 0.5, det.bbox.width * 0.3)
-                        if dist < min_dist:
+                        # 阈值：牌面宽度的 20%，下限 3px，确保正常偏移能匹配但不会跨牌
+                        max_dist = max(median_w * 0.2, 3.0)
+                        if dist < max_dist:
                             votes.setdefault(hist_det.tile_code, []).append(hist_det.confidence)
 
                 if votes:

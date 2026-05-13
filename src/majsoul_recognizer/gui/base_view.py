@@ -51,6 +51,14 @@ class BaseView(ttk.Frame):
     def on_theme_changed(self, theme: dict) -> None:
         """主题切换通知"""
         self._theme = theme
+        # 更新状态栏 Canvas 组件
+        if hasattr(self, "_status_sep"):
+            self._status_sep.configure(bg=theme["glass_border"])
+        if hasattr(self, "_status_dot"):
+            self._status_dot.configure(bg=theme["bg_crust"])
+            self._status_dot.delete("all")
+            self._status_dot.create_oval(4, 4, 12, 12,
+                                          fill=theme["accent"], outline="")
 
     def on_engine_changed(self, engine) -> None:
         """引擎重建通知（设置变更后由 App 调用）"""
@@ -89,6 +97,9 @@ class BaseView(ttk.Frame):
 
         self._status_label = status_label
         self._status_bar_frame = bar
+        # 保存 Canvas 引用以支持主题切换
+        self._status_sep = sep
+        self._status_dot = dot
         return outer, dot, status_label, info_label
 
     def set_status_text(self, text: str) -> None:
