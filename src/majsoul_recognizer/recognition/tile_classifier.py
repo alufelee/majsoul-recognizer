@@ -51,6 +51,10 @@ def _is_red_dora(
     thresh = threshold if threshold is not None else _PER_SUIT_THRESHOLD.get(tile_code, 0.10)
     return red_ratio > thresh
 
+import os
+os.environ.setdefault("USE_TF", "No")
+os.environ.setdefault("USE_JAX", "No")
+
 try:
     import torch
     _HAS_TORCH = True
