@@ -11,10 +11,14 @@ logger = logging.getLogger(__name__)
 
 def _resolve_resource_path(rel_path: str) -> Path | None:
     """优先从 importlib.resources 查找，回退到 __file__ 相对路径"""
-    # 开发模式: 项目根目录下的相对路径
-    dev_path = Path(__file__).parent.parent.parent / rel_path
-    if dev_path.exists():
-        return dev_path
+    # 开发模式: src/ 和项目根目录
+    for base in [
+        Path(__file__).parent.parent.parent,        # src/
+        Path(__file__).parent.parent.parent.parent,  # project root
+    ]:
+        candidate = base / rel_path
+        if candidate.exists():
+            return candidate
     # pip install: importlib.resources
     try:
         ref = importlib.resources.files("majsoul_recognizer").joinpath(rel_path)
@@ -31,6 +35,7 @@ class RecognitionConfig(BaseModel):
 
     # TileDetector
     model_path: Path | None = None
+    ultralytics_model_path: Path | None = None
     mapping_path: Path | None = None
     nms_iou_threshold: float = 0.55
     detection_confidence: float = 0.7
@@ -53,14 +58,36 @@ class RecognitionConfig(BaseModel):
     # 性能
     enable_batch_detection: bool = True
 
+    # TileClassifier (ViT)
+    vit_model_name: str = "pjura/mahjong_soul_vision"
+    enable_vit_classifier: bool = True
+    vit_classifier_threshold: float = 0.5
+    vit_device: str | None = None  # None=auto, "cpu", "cuda"
+
     def get_model_path(self) -> Path:
-        """获取模型路径，None 时自动解析"""
+        """获取 ONNX 模型路径，None 时自动解析"""
         if self.model_path is not None:
             return self.model_path
-        resolved = _resolve_resource_path("models/current/tile_detector.onnx")
-        if resolved is not None:
-            return resolved
+        for candidate in [
+            "models/current/tile_detector.onnx",
+            "models/tile_detector.onnx",
+        ]:
+            resolved = _resolve_resource_path(candidate)
+            if resolved is not None:
+                return resolved
         raise FileNotFoundError("tile_detector.onnx not found")
+
+    def get_ultralytics_model_path(self) -> Path | None:
+        """获取 ultralytics (PyTorch) 模型路径"""
+        if self.ultralytics_model_path is not None:
+            return self.ultralytics_model_path
+        for candidate in [
+            "models/mahjong_majsoulbot.pt",
+        ]:
+            resolved = _resolve_resource_path(candidate)
+            if resolved is not None:
+                return resolved
+        return None
 
     def get_template_dir(self) -> Path:
         """获取模板目录，None 时自动解析"""

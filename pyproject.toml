@@ -40,6 +40,16 @@ training = [
 gui = [
     "Pillow>=10.0",
 ]
+recognition-vit = [
+    "torch>=2.1",
+    "transformers>=4.34,<5.0",
+    "Pillow>=9.0",
+]
+recognition-vit-cpu = [
+    "torch>=2.1",
+    "transformers>=4.34,<5.0",
+    "Pillow>=9.0",
+]
 
 dev = [
     "pytest>=7.0",

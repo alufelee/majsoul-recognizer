@@ -246,7 +246,7 @@ class GameStateBuilder:
             gaps.append(gap)
 
         median_gap = float(median(gaps)) if gaps else 0
-        threshold = median_gap * self._config.call_group_gap_multiplier
+        threshold = max(median_gap * self._config.call_group_gap_multiplier, 10)
 
         groups: list[list[Detection]] = []
         current_group = [normals[0]]
@@ -361,9 +361,11 @@ class Validator:
         warnings: list[str] = list(state.warnings)
 
         # 规则 1: 手牌数量
+        # 每个 kan/ankan/kaken 使手牌基数减 1 (从 13 开始)
+        # chi/pon 不额外减少基数（副露牌已不在手中）
         kan_count = sum(
-            1 for group in state.calls.values()
-            for c in group if c.type in ("kan", "ankan", "kakan")
+            1 for group in state.calls.values() for c in group
+            if c.type in ("kan", "ankan", "kakan")
         )
         base_hand = 13 - kan_count
         actual = len(state.hand) + (1 if state.drawn_tile else 0)

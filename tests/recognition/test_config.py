@@ -60,3 +60,26 @@ class TestRecognitionConfig:
         template_dir.mkdir()
         config = RecognitionConfig(template_dir=template_dir)
         assert config.get_template_dir() == template_dir
+
+
+class TestRecognitionConfigVit:
+    """ViT 分类器配置测试"""
+
+    def test_vit_defaults(self):
+        config = RecognitionConfig()
+        assert config.enable_vit_classifier is True
+        assert config.vit_classifier_threshold == 0.5
+        assert config.vit_model_name == "pjura/mahjong_soul_vision"
+        assert config.vit_device is None
+
+    def test_vit_custom(self):
+        config = RecognitionConfig(
+            enable_vit_classifier=False,
+            vit_classifier_threshold=0.8,
+            vit_model_name="/local/model",
+            vit_device="cpu",
+        )
+        assert config.enable_vit_classifier is False
+        assert config.vit_classifier_threshold == 0.8
+        assert config.vit_model_name == "/local/model"
+        assert config.vit_device == "cpu"
