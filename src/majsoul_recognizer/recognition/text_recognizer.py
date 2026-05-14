@@ -1,4 +1,8 @@
-"""文字识别器"""
+"""文字识别器
+
+使用 RapidOCR (ONNX Runtime) 进行文字识别。
+针对雀魂游戏画面的特点做预处理：对比度增强、灰度化、二值化。
+"""
 
 import logging
 import re
@@ -33,6 +37,18 @@ _KYOTAKU_KEYWORDS = ["供托", "供託"]
 _SCORE_MIN = -99999
 _SCORE_MAX = 200000
 
+# 分数区域允许的字符
+_SCORE_CHARS = set("0123456789,.-")
+# 局次区域允许的字符
+_ROUND_CHARS = set("东東南一二三四0123456789本场供托託")
+# 计时器区域允许的字符
+_TIMER_CHARS = set("0123456789:")
+
+
+def _filter_chars(text: str, allowed: set[str]) -> str:
+    """过滤只保留允许的字符"""
+    return "".join(c for c in text if c in allowed)
+
 
 def _parse_score_text(text: str) -> int | None:
     """分数后处理"""
@@ -41,9 +57,7 @@ def _parse_score_text(text: str) -> int | None:
         return None
 
     is_negative = text.startswith("-")
-    # 去除非数字字符（保留逗号和数字）
     cleaned = text.replace(" ", "").replace(",", "")
-    # 提取连续数字
     digits = re.sub(r"[^0-9]", "", cleaned)
     if not digits:
         return None
@@ -64,13 +78,11 @@ def _parse_round_text(text: str) -> RoundInfo | None:
     honba = 0
     kyotaku = 0
 
-    # 匹配风位
     for char in text:
         if char in _WIND_MAP:
             wind = _WIND_MAP[char]
             break
 
-    # 匹配局数
     for char in text:
         if char in _NUMBER_MAP:
             number = _NUMBER_MAP[char]
@@ -79,17 +91,15 @@ def _parse_round_text(text: str) -> RoundInfo | None:
     if wind is None or number is None:
         return None
 
-    # 匹配本场
     for kw in _HONBA_KEYWORDS:
         idx = text.find(kw)
         if idx > 0:
             prefix = text[:idx]
             digits = re.sub(r"[^0-9]", "", prefix)
             if digits:
-                honba = int(digits[-3:])  # 最多3位
+                honba = int(digits[-3:])
             break
 
-    # 匹配供托
     for kw in _KYOTAKU_KEYWORDS:
         idx = text.find(kw)
         if idx > 0:
@@ -108,7 +118,6 @@ def _parse_timer_text(text: str) -> int | None:
     if not text:
         return None
 
-    # 处理 MM:SS 格式
     if ":" in text:
         parts = text.split(":")
         if len(parts) == 2:
@@ -125,79 +134,60 @@ def _parse_timer_text(text: str) -> int | None:
     return int(digits)
 
 
+def _preprocess_for_ocr(image: np.ndarray, enhance_contrast: bool = True) -> np.ndarray:
+    """游戏画面文字预处理
+
+    雀魂文字通常为浅色（白/黄/红）配暗色背景或半透明背景。
+    策略：CLAHE 对比度增强 → 灰度 → Otsu 二值化。
+    """
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image.copy()
+
+    if enhance_contrast:
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        gray = clahe.apply(gray)
+
+    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    return binary
+
+
 class TextRecognizer:
     """文字识别器"""
 
-    def __init__(self, model_dir: Path | str | None = None):
-        self._model_dir = model_dir
-        # 延迟初始化：每种识别场景使用独立的 OCR 实例，配合对应的字典文件
-        self._score_ocr = None
-        self._round_ocr = None
-        self._timer_ocr = None
+    def __init__(self, model_dir: str | None = None):
+        # model_dir 保留接口兼容，RapidOCR 自动管理模型
+        self._ocr = None
 
-    def _get_dict_path(self, dict_name: str) -> str | None:
-        """获取字典文件路径"""
-        # 开发模式：相对于 recognition 模块的上级目录
-        dev_path = Path(__file__).parent.parent / "ocr_dicts" / dict_name
-        if dev_path.exists():
-            return str(dev_path)
-        # 安装模式：通过 importlib.resources 查找
-        try:
-            import importlib.resources
-            ref = importlib.resources.files("majsoul_recognizer").joinpath(f"ocr_dicts/{dict_name}")
-            if ref.is_file():
-                return str(ref)
-        except Exception:
-            pass
-        return None
-
-    def _create_ocr(self, dict_name: str | None = None):
-        """创建 PaddleOCR 实例，可选指定字典文件实现字符白名单过滤"""
-        try:
-            from paddleocr import PaddleOCR
-            kwargs = dict(
-                use_angle_cls=False,
-                lang="ch",
-                use_gpu=False,
-                show_log=False,
-            )
-            if self._model_dir:
-                kwargs["det_model_dir"] = self._model_dir
-            dict_path = self._get_dict_path(dict_name) if dict_name else None
-            if dict_path:
-                kwargs["rec_char_dict_path"] = dict_path
-            return PaddleOCR(**kwargs)
-        except ImportError:
-            logger.warning("PaddleOCR not available, text recognition disabled")
-            return None
-        except Exception as e:
-            logger.warning("Failed to initialize PaddleOCR: %s", e)
-            return None
+    def _ensure_ocr(self):
+        if self._ocr is None:
+            try:
+                from rapidocr_onnxruntime import RapidOCR
+                self._ocr = RapidOCR()
+            except ImportError:
+                logger.warning("RapidOCR not available, text recognition disabled")
+                self._ocr = False
+        return self._ocr if self._ocr is not False else None
 
     def recognize_score(self, image: np.ndarray) -> int | None:
         """识别分数区域"""
         if image is None or image.size == 0:
             return None
-        if self._score_ocr is None:
-            self._score_ocr = self._create_ocr("score_dict.txt")
-        if self._score_ocr is None:
-            return None
-        text = self._run_ocr(image, self._score_ocr)
+        text = self._run_ocr(image)
         if text is None:
             return None
+        text = _filter_chars(text, _SCORE_CHARS)
         return _parse_score_text(text)
 
     def recognize_round(self, image: np.ndarray) -> RoundInfo | None:
         """识别局次信息"""
         if image is None or image.size == 0:
             return None
-        if self._round_ocr is None:
-            self._round_ocr = self._create_ocr("round_dict.txt")
-        if self._round_ocr is None:
-            return None
-        text = self._run_ocr(image, self._round_ocr)
+        text = self._run_ocr(image, enhance_contrast=True)
         if text is None:
             return None
+        text = _filter_chars(text, _ROUND_CHARS)
         return _parse_round_text(text)
 
     def recognize_timer(self, image: np.ndarray) -> int | None:
@@ -206,25 +196,27 @@ class TextRecognizer:
             return None
         if image.shape[0] < 5 or image.shape[1] < 5:
             return None
-        if self._timer_ocr is None:
-            self._timer_ocr = self._create_ocr("timer_dict.txt")
-        if self._timer_ocr is None:
-            return None
-        text = self._run_ocr(image, self._timer_ocr)
+        text = self._run_ocr(image)
         if text is None:
             return None
+        text = _filter_chars(text, _TIMER_CHARS)
         return _parse_timer_text(text)
 
-    def _run_ocr(self, image: np.ndarray, ocr) -> str | None:
+    def _run_ocr(self, image: np.ndarray, enhance_contrast: bool = True) -> str | None:
         """执行 OCR 推理"""
+        ocr = self._ensure_ocr()
         if ocr is None:
             return None
         try:
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
-            _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            result = ocr.ocr(binary, cls=False)
-            if result and result[0]:
-                texts = [line[1][0] for line in result[0] if line[1]]
+            binary = _preprocess_for_ocr(image, enhance_contrast)
+            result, _ = ocr(binary, use_cls=False)
+            if result:
+                texts = [item[1] for item in result]
+                return " ".join(texts)
+            # 二值化失败时尝试原图
+            result2, _ = ocr(image, use_cls=False)
+            if result2:
+                texts = [item[1] for item in result2]
                 return " ".join(texts)
         except Exception as e:
             logger.warning("OCR failed: %s", e)

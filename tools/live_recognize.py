@@ -76,14 +76,28 @@ def main():
                 zone_rects=result.zone_rects,
             )
 
+            parts = [f"[帧{frame_count}]"]
             if gs.hand:
                 hand_str = display_hand(gs.hand)
                 drawn = display_hand([gs.drawn_tile]) if gs.drawn_tile else ""
                 dora_str = display_hand(gs.dora_indicators) if gs.dora_indicators else "无"
-                print(f"[帧{frame_count}] 手牌({len(gs.hand)}): {hand_str}"
-                      + (f"  摸牌: {drawn}" if drawn else "")
-                      + f"  宝牌: {dora_str}"
-                      + (f"  ⚠ {gs.warnings}" if gs.warnings else ""))
+                parts.append(f"手牌({len(gs.hand)}): {hand_str}")
+                if drawn:
+                    parts.append(f"摸牌: {drawn}")
+                parts.append(f"宝牌: {dora_str}")
+            if gs.round_info:
+                ri = gs.round_info
+                parts.append(f"局次: {ri.wind}{ri.number}局 本场{ri.honba}")
+            if gs.scores:
+                score_str = " ".join(f"{k}={v}" for k, v in gs.scores.items())
+                parts.append(f"分数: {score_str}")
+            if gs.timer_remaining is not None:
+                m, s = divmod(gs.timer_remaining, 60)
+                parts.append(f"计时: {m:02d}:{s:02d}")
+            if gs.warnings:
+                parts.append(f"⚠ {gs.warnings}")
+            if len(parts) > 1:
+                print("  ".join(parts))
 
             time.sleep(1.0)
 

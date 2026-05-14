@@ -174,10 +174,15 @@ class RecognitionEngine:
                 detections = {name: detector.detect(img, confidence) for name, img in tile_images}
 
         # ViT 二次分类
+        _NON_TILE_CLASSES = {"back", "rotated", "dora_frame"}
         classifier = self._ensure_classifier()
         if classifier is not None and detections:
             for zone_name, dets in detections.items():
                 if not dets:
+                    continue
+                # 分离牌面和非牌面检测，仅对牌面使用 ViT
+                tile_indices = [i for i, d in enumerate(dets) if d.tile_code not in _NON_TILE_CLASSES]
+                if not tile_indices:
                     continue
                 if scaled_rects and zone_name in scaled_rects:
                     source = full_image
@@ -190,15 +195,16 @@ class RecognitionEngine:
                 h_img, w_img = source.shape[:2]
                 crops = [
                     source[
-                        max(0, oy + d.bbox.y):min(h_img, oy + d.bbox.y + d.bbox.height),
-                        max(0, ox + d.bbox.x):min(w_img, ox + d.bbox.x + d.bbox.width),
+                        max(0, oy + dets[i].bbox.y):min(h_img, oy + dets[i].bbox.y + dets[i].bbox.height),
+                        max(0, ox + dets[i].bbox.x):min(w_img, ox + dets[i].bbox.x + dets[i].bbox.width),
                     ]
-                    for d in dets
+                    for i in tile_indices
                 ]
                 vit_results = classifier.classify_batch(crops)
-                for i, (tile_code, conf) in enumerate(vit_results):
+                for j, (tile_code, conf) in enumerate(vit_results):
                     if tile_code and conf >= self._config.vit_classifier_threshold:
-                        dets[i] = dets[i].model_copy(update={
+                        orig_i = tile_indices[j]
+                        dets[orig_i] = dets[orig_i].model_copy(update={
                             "tile_code": tile_code,
                             "confidence": conf,
                         })

@@ -123,8 +123,10 @@ class TileClassifier:
                 tile_code = _PJURA_TO_TILE_CODE.get(pjura_label, pjura_label)
                 if tile_code == pjura_label and pjura_label not in _PJURA_TO_TILE_CODE:
                     logger.warning("Unknown pjura label: %s", pjura_label)
-                if tile_code in ("5m", "5p", "5s") and _is_red_dora(crop, tile_code):
-                    tile_code = tile_code + "r"
+                # Red dora detection disabled: HSV-based approach has high false positive
+                # rate on real game tiles (normal 5m/5s tiles show higher red ratios than
+                # actual red dora). Red dora should be handled by the YOLO detector which
+                # has explicit 5mr/5pr/5sr classes.
                 results[orig_idx] = (tile_code, round(conf.item(), 4))
 
         except Exception as e:
