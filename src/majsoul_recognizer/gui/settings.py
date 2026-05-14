@@ -27,7 +27,7 @@ class GUISettings:
     template_dir: str | None = None
     config_path: str | None = None
     ocr_model_dir: str | None = None
-    detection_confidence: float = 0.7
+    detection_confidence: float = 0.3
     nms_iou_threshold: float = 0.55
     score_min: int = -99999
     score_max: int = 200000

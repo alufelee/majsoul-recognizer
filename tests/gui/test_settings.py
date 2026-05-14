@@ -11,7 +11,7 @@ class TestGUISettingsDefaults:
         s = GUISettings()
         assert s.model_path is None
         assert s.theme == "dark"
-        assert s.detection_confidence == 0.7
+        assert s.detection_confidence == 0.3
         assert s.window_width == 1280
         assert s.window_height == 800
 
@@ -64,7 +64,7 @@ class TestToRecognitionConfig:
         config = s.to_recognition_config()
         assert isinstance(config, RecognitionConfig)
         assert config.model_path is None
-        assert config.detection_confidence == 0.7
+        assert config.detection_confidence == 0.3
         assert config.nms_iou_threshold == 0.55
         assert config.enable_batch_detection is True
         assert config.drawn_tile_gap_multiplier == 2.5

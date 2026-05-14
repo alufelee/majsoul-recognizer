@@ -78,7 +78,9 @@ class _RecognizeWorker:
             engine = self._engine_ref
             try:
                 frame = self._pipeline_ref.process_image(image)
-                state = engine.recognize(frame.zones) if (engine and frame.is_static) else None
+                state = engine.recognize(
+                    frame.zones, full_image=frame.full_image, zone_rects=frame.zone_rects,
+                ) if (engine and frame.is_static) else None
                 result = _WorkerResult(image=image, frame=frame, state=state)
             except Exception as e:
                 result = _WorkerResult(error=str(e))

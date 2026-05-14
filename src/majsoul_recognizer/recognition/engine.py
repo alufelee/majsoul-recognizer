@@ -9,7 +9,7 @@ from majsoul_recognizer.recognition.config import RecognitionConfig
 from majsoul_recognizer.recognition.pattern_matcher import PatternMatcher
 from majsoul_recognizer.recognition.state_builder import GameStateBuilder, Validator
 from majsoul_recognizer.recognition.text_recognizer import TextRecognizer
-from majsoul_recognizer.types import Detection, GameState, ZoneName
+from majsoul_recognizer.types import BBox, Detection, GameState, ZoneName
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,22 @@ try:
     _HAS_ULTRALYTICS = True
 except ImportError:
     _HAS_ULTRALYTICS = False
+
+
+def _assign_detections_to_zones(
+    detections: list[Detection],
+    zone_rects: dict[str, tuple[int, int, int, int]],
+) -> dict[str, list[Detection]]:
+    """将全图检测结果按中心点分配到区域，保留全图坐标以保证排序一致性"""
+    result: dict[str, list[Detection]] = {name: [] for name in zone_rects}
+    for det in detections:
+        cx = det.bbox.x + det.bbox.width // 2
+        cy = det.bbox.y + det.bbox.height // 2
+        for name, (zx, zy, zw, zh) in zone_rects.items():
+            if zx <= cx <= zx + zw and zy <= cy <= zy + zh:
+                result[name].append(det)
+                break
+    return result
 
 
 class _StubDetector:
@@ -141,31 +157,34 @@ class RecognitionEngine:
         confidence = self._config.detection_confidence
         detector = self._ensure_detector()
 
-        # 判断是否使用全图检测模式
-        use_full_image = (
-            full_image is not None
-            and zone_rects is not None
-            and hasattr(detector, "detect_full_image")
-        )
-
         scaled_rects: dict[str, tuple[int, int, int, int]] = {}
 
-        if use_full_image:
+        # 优先全图检测模式：检测全图所有牌，再按位置分配到区域
+        if full_image is not None and zone_rects is not None:
             tile_rects = {name: zone_rects[name] for name in tile_zone_names
                          if name in zone_rects}
-            from majsoul_recognizer.recognition.ultralytics_detector import (
-                UltralyticsTileDetector,
-            )
-            assert isinstance(detector, UltralyticsTileDetector)
-            img_h, img_w = full_image.shape[:2]
-            scale_x = img_w / 1920.0
-            scale_y = img_h / 1080.0
-            for name, (x, y, w, h) in tile_rects.items():
-                scaled_rects[name] = (
-                    int(x * scale_x), int(y * scale_y),
-                    int(w * scale_x), int(h * scale_y),
+
+            if hasattr(detector, "detect_full_image"):
+                # Ultralytics 检测器的专用接口
+                from majsoul_recognizer.recognition.ultralytics_detector import (
+                    UltralyticsTileDetector,
                 )
-            detections = detector.detect_full_image(full_image, scaled_rects, confidence)
+                assert isinstance(detector, UltralyticsTileDetector)
+                img_h, img_w = full_image.shape[:2]
+                scale_x = img_w / 1920.0
+                scale_y = img_h / 1080.0
+                for name, (x, y, w, h) in tile_rects.items():
+                    scaled_rects[name] = (
+                        int(x * scale_x), int(y * scale_y),
+                        int(w * scale_x), int(h * scale_y),
+                    )
+                detections = detector.detect_full_image(full_image, scaled_rects, confidence)
+            else:
+                # ONNX 检测器：全图检测 → 按 zone_rect 分配
+                all_dets = detector.detect(full_image, confidence)
+                detections = _assign_detections_to_zones(all_dets, tile_rects)
+                logger.info("Full-image detection: %d total, assigned to %d zones",
+                            len(all_dets), sum(len(v) for v in detections.values()))
         else:
             tile_images = [(name, zones[name]) for name in tile_zone_names if name in zones]
             if self._config.enable_batch_detection and len(tile_images) > 1:

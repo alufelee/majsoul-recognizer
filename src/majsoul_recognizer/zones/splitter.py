@@ -41,6 +41,10 @@ class ZoneSplitter:
             return image
         return cv2.resize(image, (BASE_WIDTH, BASE_HEIGHT), interpolation=cv2.INTER_LINEAR)
 
+    def normalize(self, image: np.ndarray) -> np.ndarray:
+        """公开接口：将图像归一化到 1920x1080"""
+        return self._normalize(image)
+
     def _crop_zone(self, image: np.ndarray, zone_name: ZoneName) -> np.ndarray:
         zone_def = self._config.get_zone(zone_name)
         if zone_def is None:
