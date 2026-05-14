@@ -63,6 +63,8 @@ class TestImageCanvasShowImage:
         image = np.zeros((100, 100, 3), dtype=np.uint8)
         canvas.winfo_height = lambda: 1
         canvas.winfo_width = lambda: 1
+        canvas.winfo_reqheight = lambda: 1
+        canvas.winfo_reqwidth = lambda: 1
         canvas.show_image(image)
         assert canvas._pending_image is not None
 
