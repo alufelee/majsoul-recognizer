@@ -29,7 +29,10 @@ class TestRecognitionConfig:
         assert config.detection_confidence == 0.5
         assert config.fusion_window_size == 5
 
-    def test_get_model_path_raises_when_not_found(self):
+    def test_get_model_path_raises_when_not_found(self, monkeypatch):
+        """自动解析失败时抛 FileNotFoundError"""
+        from majsoul_recognizer.recognition import config as config_mod
+        monkeypatch.setattr(config_mod, "_resolve_resource_path", lambda _: None)
         config = RecognitionConfig()
         with pytest.raises(FileNotFoundError, match="tile_detector.onnx"):
             config.get_model_path()

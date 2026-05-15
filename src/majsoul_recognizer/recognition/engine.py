@@ -2,6 +2,7 @@
 
 import logging
 import time
+from pathlib import Path
 
 import numpy as np
 
@@ -89,14 +90,41 @@ class RecognitionEngine:
             elif _HAS_ORT:
                 from majsoul_recognizer.recognition.tile_detector import TileDetector
                 model_path = self._config.get_model_path()
+                class_map = self._get_class_map(model_path)
                 self._detector = TileDetector(
                     str(model_path),
+                    class_map=class_map,
                     nms_iou=self._config.nms_iou_threshold,
                 )
+                logger.info("Using ONNX detector: %s (%d classes)",
+                            model_path, len(class_map))
             else:
                 logger.warning("No detector available, using stub")
                 self._detector = _StubDetector()
         return self._detector
+
+    @staticmethod
+    def _get_class_map(model_path: Path) -> dict[int, str] | None:
+        """根据模型文件名选择类别映射
+
+        mahjong_majsoulbot.onnx: 真实数据训练，34 类牌面
+        tile_detector.onnx: 合成数据训练，40 类（含 back/rotated/dora_frame）
+        """
+        name = Path(model_path).name
+        if "majsoulbot" in name:
+            return {
+                0: "1m", 1: "1p", 2: "1s", 3: "1z",
+                4: "2m", 5: "2p", 6: "2s", 7: "2z",
+                8: "3m", 9: "3p", 10: "3s", 11: "3z",
+                12: "4m", 13: "4p", 14: "4s", 15: "4z",
+                16: "5m", 17: "5p", 18: "5s", 19: "5z",
+                20: "6m", 21: "6p", 22: "6s", 23: "6z",
+                24: "7m", 25: "7p", 26: "7s", 27: "7z",
+                28: "8m", 29: "8p", 30: "8s",
+                31: "9m", 32: "9p", 33: "9s",
+            }
+        # 旧模型使用默认映射（tile_detector.py 内置的 _DEFAULT_CLASS_MAP）
+        return None
 
     def _ensure_ocr(self) -> TextRecognizer:
         if self._ocr is None:

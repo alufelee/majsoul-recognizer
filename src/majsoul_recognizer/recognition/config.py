@@ -65,10 +65,15 @@ class RecognitionConfig(BaseModel):
     vit_device: str | None = None  # None=auto, "cpu", "cuda"
 
     def get_model_path(self) -> Path:
-        """获取 ONNX 模型路径，None 时自动解析"""
+        """获取 ONNX 模型路径，None 时自动解析
+
+        优先使用真实数据训练的模型 (mahjong_majsoulbot.onnx)，
+        回退到合成数据模型 (tile_detector.onnx)。
+        """
         if self.model_path is not None:
             return self.model_path
         for candidate in [
+            "models/mahjong_majsoulbot.onnx",
             "models/current/tile_detector.onnx",
             "models/tile_detector.onnx",
         ]:
