@@ -167,7 +167,12 @@ class TileDetector:
         providers.append("CPUExecutionProvider")
 
         self._session = ort.InferenceSession(str(model_path), providers=providers)
-        logger.info("TileDetector loaded from %s", model_path)
+
+        # 从模型输入 shape 自动推断 letterbox 目标尺寸
+        input_shape = self._session.get_inputs()[0].shape  # [1, 3, H, W]
+        self._input_size = input_shape[2] if isinstance(input_shape[2], int) else 640
+
+        logger.info("TileDetector loaded from %s (input_size=%d)", model_path, self._input_size)
 
     def detect(self, image: np.ndarray, confidence: float = 0.7) -> list[Detection]:
         """检测单张图像中的牌面"""
@@ -214,7 +219,7 @@ class TileDetector:
     def _preprocess(self, image: np.ndarray) -> tuple:
         """Letterbox 预处理"""
         orig_h, orig_w = image.shape[:2]
-        target = 640
+        target = self._input_size
         scale = min(target / orig_w, target / orig_h)
         new_w = int(orig_w * scale)
         new_h = int(orig_h * scale)
@@ -267,9 +272,10 @@ class TileDetector:
         """构建多区域拼接画布"""
         n = len(images)
         grid_size = max(2, math.ceil(math.sqrt(n)))
-        slot_size = 640 // grid_size
+        target = self._input_size
+        slot_size = target // grid_size
 
-        canvas = np.full((640, 640, 3), 114, dtype=np.uint8)
+        canvas = np.full((target, target, 3), 114, dtype=np.uint8)
         slots: list[_CanvasSlot] = []
 
         for idx, (name, img) in enumerate(images):

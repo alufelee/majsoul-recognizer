@@ -67,12 +67,13 @@ class RecognitionConfig(BaseModel):
     def get_model_path(self) -> Path:
         """获取 ONNX 模型路径，None 时自动解析
 
-        优先使用真实数据训练的模型 (mahjong_majsoulbot.onnx)，
-        回退到合成数据模型 (tile_detector.onnx)。
+        优先使用 1280 输入的真实数据模型（检测精度最高），
+        回退到 640 真实数据模型，最后是合成数据模型。
         """
         if self.model_path is not None:
             return self.model_path
         for candidate in [
+            "models/mahjong_majsoulbot_1280.onnx",
             "models/mahjong_majsoulbot.onnx",
             "models/current/tile_detector.onnx",
             "models/tile_detector.onnx",
